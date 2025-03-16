@@ -1,0 +1,17 @@
+services:
+  chatbot:
+    build: ./ai
+    container_name: chatbot
+    ports:
+      - "5000:5000"
+    environment:
+      - OLLAMA_HOST=http://host.docker.internal:11434 # Gunakan nama service Docker untuk komunikasi
+      - MODEL=deepseek-r1:1.5b
+    volumes:
+      - ./chatbot/knowledge:/app/knowledge
+      - ./chatbot/templates:/app/templates
+      - ./chatbot/static:/app/static
+    restart: unless-stopped  # Restart otomatis jika gagal
+
+volumes:
+  ollama-data:
