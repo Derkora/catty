@@ -1,25 +1,27 @@
 from flask import Flask, request, jsonify, render_template
 import requests
 import os
-import json
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 
 # Konfigurasi Ollama API
 OLLAMA_URL = os.getenv("OLLAMA_HOST", "http://host.docker.internal:11434") + "/api/generate"
-MODEL = os.getenv("MODEL", "deepseek-r1:1.5b")
+MODEL = os.getenv("MODEL", "deepseek-r1:7b")
 
-def load_json(filename):
-    """Memuat JSON dari folder behaviour."""
-    path = os.path.join("behaviour", filename)
+
+def load_prompt(role):
+    """Memuat template prompt dari file Markdown sesuai dengan role."""
+    path = os.path.join("behaviour", f"{role}.md")
+    default_path = os.path.join("behaviour", "general.md")
+    
     if os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {}
+        file_path = path
+    else:
+        file_path = default_path
+    
+    with open(file_path, "r", encoding="utf-8") as f:
+        return f.read().strip()
 
-# Memuat prompt dan daftar kata kasar dari JSON
-PROMPT_TEMPLATES = load_json("prompts.json")
-BAD_WORDS = set(load_json("bad_words.json").get("bad_words", []))
 
 def load_knowledge():
     """Membaca semua file dalam folder 'knowledge' dan menggabungkan isinya."""
@@ -39,28 +41,20 @@ def load_knowledge():
 
 KNOWLEDGE_BASE = load_knowledge()
 
-def filter_bad_words(text):
-    """Mencegah kata-kata kasar dalam input pengguna."""
-    words = text.lower().split()
-    for word in words:
-        if word in BAD_WORDS:
-            return True
-    return False
 
 def generate_prompt(role, user_message):
     """Menghasilkan prompt sesuai dengan role pengguna."""
-    if filter_bad_words(user_message):
-        return None  # Jika ada kata kasar, return None
+    prompt_template = load_prompt(role)
+    knowledge_section = KNOWLEDGE_BASE.get(role, KNOWLEDGE_BASE["general"])
     
-    prompt_template = PROMPT_TEMPLATES.get(role, PROMPT_TEMPLATES["general"])
-    knowledge_section = KNOWLEDGE_BASE.get(role, "")
-
     return f"{knowledge_section}\n\n" + prompt_template.replace("{message}", user_message)
+
 
 @app.route("/")
 def home():
     """Menampilkan halaman utama."""
     return render_template("index.html")
+
 
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -70,10 +64,6 @@ def chat():
 
     if not user_message:
         return jsonify({"reply": "Maaf, pesan tidak boleh kosong."})
-
-    # Cek apakah ada kata kasar
-    if filter_bad_words(user_message):
-        return jsonify({"reply": "Maaf, pesan Anda mengandung kata-kata yang tidak diperbolehkan."})
 
     # Generate prompt berdasarkan role
     prompt = generate_prompt(role, user_message)
@@ -99,6 +89,7 @@ def chat():
         ai_reply = f"Terjadi kesalahan saat menghubungi AI: {str(e)}"
 
     return jsonify({"reply": ai_reply})
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

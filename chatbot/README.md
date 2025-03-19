@@ -1,5 +1,4 @@
-Install with Apt
-
+# Install Container GPU
 1. Configure the repository
 ```sh
 curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey \
@@ -26,5 +25,10 @@ docker run -d --gpus=all -v ollama:/root/.ollama -p 11434:11434 --name ollama ol
 
 4. run model
 ```sh
-docker exec -it ollama ollama run deepseek-r1:1.5b
+docker exec -it ollama ollama run deepseek-r1:7b
+```
+
+# RUN MODEL
+```sh
+sudo docker compose up -d
 ```
