@@ -6,7 +6,7 @@ import json
 app = Flask(__name__, template_folder="templates", static_folder="static")
 
 # Konfigurasi Ollama API
-OLLAMA_URL = os.getenv("OLLAMA_HOST", "http://localhost:11434") + "/api/generate"
+OLLAMA_URL = os.getenv("OLLAMA_HOST", "http://host.docker.internal:11434") + "/api/generate"
 MODEL = os.getenv("MODEL", "deepseek-r1:1.5b")
 
 def load_json(filename):

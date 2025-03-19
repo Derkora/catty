@@ -23,3 +23,8 @@ sudo systemctl restart docker
 ```sh
 docker run -d --gpus=all -v ollama:/root/.ollama -p 11434:11434 --name ollama ollama/ollama
 ```
+
+4. run model
+```sh
+docker exec -it ollama ollama run deepseek-r1:1.5b
+```

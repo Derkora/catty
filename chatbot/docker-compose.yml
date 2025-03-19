@@ -8,10 +8,11 @@ services:
       - OLLAMA_HOST=http://host.docker.internal:11434 # Gunakan nama service Docker untuk komunikasi
       - MODEL=deepseek-r1:1.5b
     volumes:
-      - ./chatbot/knowledge:/app/knowledge
-      - ./chatbot/templates:/app/templates
-      - ./chatbot/static:/app/static
-    restart: unless-stopped  # Restart otomatis jika gagal
+      - ./ai/behaviour:/app/behaviour
+      - ./ai/knowledge:/app/knowledge
+      - ./ai/templates:/app/templates
+      - ./ai/static:/app/static
+    restart: unless-stopped 
 
 volumes:
   ollama-data:
