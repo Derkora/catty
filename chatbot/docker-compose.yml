@@ -5,14 +5,16 @@ services:
     ports:
       - "5000:5000"
     environment:
-      - OLLAMA_HOST=http://host.docker.internal:11434 # Gunakan nama service Docker untuk komunikasi
-      - MODEL=deepseek-r1:7b
+      - OLLAMA_HOST=http://ollama:11434  # Gunakan nama container Ollama
+      - MODEL=deepseek-r1:32b
     volumes:
       - ./ai/behaviour:/app/behaviour
       - ./ai/knowledge:/app/knowledge
       - ./ai/templates:/app/templates
-      - ./ai/static:/app/static
-    restart: unless-stopped 
+    networks:
+      - ai-network
+    restart: unless-stopped
 
-volumes:
-  ollama-data:
+networks:
+  ai-network:
+    external: true
