@@ -53,11 +53,18 @@ def generate_prompt(role, user_message):
 
     return f"{knowledge_section}\n\n" + prompt_template.replace("{message}", user_message)
 
+# ending 1
 @app.route("/")
 def home():
     """Menampilkan halaman utama."""
     return render_template("index.html")
 
+# ending 2
+"""
+@app.route("/")
+def home():
+    return "Halaman ini tidak tersedia."
+"""
 
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -75,7 +82,7 @@ def chat():
 
     try:
         response = requests.post(
-            OLLAMA_URL, json={"model": MODEL, "prompt": prompt, "stream": False}, timeout=10
+            OLLAMA_URL, json={"model": MODEL, "prompt": prompt, "stream": False}, timeout=100 # timeout 100 detik
         )
         response.raise_for_status()
 

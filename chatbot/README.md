@@ -36,7 +36,7 @@ docker run -d --gpus=all \
 
 4. run model
 ```sh
-docker exec -it ollama ollama run deepseek-r1:7b
+docker exec -it ollama ollama run deepseek-r1:32b
 ```
 
 # RUN MODEL
