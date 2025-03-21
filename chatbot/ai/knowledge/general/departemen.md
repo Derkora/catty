@@ -5,7 +5,5 @@
 - Memiliki dua laboratorium penelitian:  
   - **Lab KCKS** (Kota Cerdas dan Keamanan Siber)  
   - **Lab SOC** (Security Operations Center)  
-- Prestasi yang telah diraih:  
-  - Juara **Gemastik Smart City**  
-  - Menjuarai berbagai kompetisi **Capture The Flag (CTF)** di bidang keamanan siber  
+
 

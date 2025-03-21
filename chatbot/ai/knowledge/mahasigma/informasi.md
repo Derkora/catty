@@ -1,1 +1,0 @@
-hari ini tidak ada kuliah

@@ -5,7 +5,7 @@ import os
 app = Flask(__name__, template_folder="templates", static_folder="static")
 
 # Konfigurasi Ollama API
-OLLAMA_URL = os.getenv("OLLAMA_HOST", "http://host.docker.internal:11434") + "/api/generate"
+OLLAMA_URL = os.getenv("OLLAMA_HOST", "http://ollama:11434") + "/api/generate"
 MODEL = os.getenv("MODEL", "deepseek-r1:7b")
 
 
@@ -41,14 +41,17 @@ def load_knowledge():
 
 KNOWLEDGE_BASE = load_knowledge()
 
-
 def generate_prompt(role, user_message):
     """Menghasilkan prompt sesuai dengan role pengguna."""
     prompt_template = load_prompt(role)
-    knowledge_section = KNOWLEDGE_BASE.get(role, KNOWLEDGE_BASE["general"])
-    
-    return f"{knowledge_section}\n\n" + prompt_template.replace("{message}", user_message)
 
+    # Jika role adalah "mahasigma", gabungkan knowledge "general" + "mahasigma"
+    if role == "mahasigma":
+        knowledge_section = KNOWLEDGE_BASE["general"] + "\n\n" + KNOWLEDGE_BASE["mahasigma"]
+    else:
+        knowledge_section = KNOWLEDGE_BASE["general"]
+
+    return f"{knowledge_section}\n\n" + prompt_template.replace("{message}", user_message)
 
 @app.route("/")
 def home():

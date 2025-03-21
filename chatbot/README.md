@@ -18,9 +18,20 @@ sudo nvidia-ctk runtime configure --runtime=docker
 sudo systemctl restart docker
 ```
 
-3. run ollama gpu container
+3. Buat network
 ```sh
-docker run -d --gpus=all -v ollama:/root/.ollama -p 11434:11434 --name ollama ollama/ollama
+docker network create ai-network
+```
+
+4. run ollama gpu container
+```sh
+docker run -d --gpus=all \
+  --network ai-network \
+  -v ollama-data:/root/.ollama \
+  -p 11434:11434 \
+  --name ollama \
+  --restart=unless-stopped  \
+  ollama/ollama
 ```
 
 4. run model
