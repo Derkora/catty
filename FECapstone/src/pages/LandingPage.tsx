@@ -6,7 +6,6 @@ import { Button } from '../components/ui/button';
 import { getNews, NewsItem, getStrapiMedia } from '../api/strapiApi';
 import { ArrowRight, Code, Database, Globe, Lock, Cpu, ChevronDown } from 'lucide-react';
 
-// CSS kustom untuk animasi float
 const customStyles = `
   @keyframes float {
       0% { transform: translateY(0px) translateX(0px); }
@@ -112,7 +111,6 @@ const LandingPage: React.FC = () => {
     const [visibleSection, setVisibleSection] = useState(false);
 
     useEffect(() => {
-        // Menambahkan style kustom ke head document
         const styleElement = document.createElement('style');
         styleElement.innerHTML = customStyles;
         document.head.appendChild(styleElement);
@@ -159,9 +157,7 @@ const LandingPage: React.FC = () => {
             <Header />
 
             <main className="flex-grow w-full mt-16">
-                {/* Hero Section dengan Particle Background */}
                 <section className="relative min-h-[calc(100vh-4rem)] flex items-center w-full overflow-hidden bg-gradient-to-br from-blue-900 via-indigo-900 to-violet-900">
-                    {/* Particle Background */}
                     <div className="absolute inset-0">
                         <div className="absolute inset-0">
                             {[...Array(20)].map((_, i) => (
@@ -181,20 +177,16 @@ const LandingPage: React.FC = () => {
                         </div>
                     </div>
                     
-                    {/* Animated Gradient Orbs */}
                     <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-blue-600 rounded-full filter blur-[100px] opacity-30 mix-blend-multiply animate-float"></div>
                     <div className="absolute bottom-1/4 left-1/4 w-64 h-64 bg-violet-600 rounded-full filter blur-[80px] opacity-30 mix-blend-multiply animate-float-delay"></div>
                     <div className="absolute top-3/4 left-1/3 w-72 h-72 bg-indigo-500 rounded-full filter blur-[120px] opacity-20 mix-blend-multiply animate-float-slow"></div>
                     
-                    {/* Grid Lines Background */}
                     <div className="absolute inset-0 bg-grid-pattern opacity-10"></div>
                     
-                    {/* Content */}
                     <div className="container-content relative z-10 mx-auto px-4 py-12">
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center">
-                            {/* Left Side: Text Content */}
                             <div className={`fade-in-section ${visibleSection ? 'is-visible' : ''} space-y-6 text-center lg:text-left`}>
-                                {/* Judul Utama */}
+                           
                                 <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight tracking-tight">
                                     Departemen <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-blue-300 to-indigo-300 animate-text-gradient">Teknologi Informasi</span> ITS
                                 </h1>
@@ -220,7 +212,6 @@ const LandingPage: React.FC = () => {
                                     </Button>
                                 </div>
                                 
-                                {/* Expertise Icons */}
                                 <div className="pt-10 pb-4">
                                     <p className="text-sm text-blue-200 mb-4">Bidang Keahlian Utama:</p>
                                     <div className="flex flex-wrap gap-4 justify-center lg:justify-start">
@@ -248,7 +239,6 @@ const LandingPage: React.FC = () => {
                                 </div>
                             </div>
                             
-                            {/* Right Side: 3D/Perspective Hero Image */}
                             <div className={`fade-in-section ${visibleSection ? 'is-visible fade-in-delay' : ''} hidden lg:block`}>
                                 <div className="relative perspective-container">
                                     {/* Main Card */}
