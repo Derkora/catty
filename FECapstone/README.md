@@ -1,50 +1,105 @@
-# React + TypeScript + Vite
+# Frontend Portal Informasi Departemen Teknologi Informasi
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Aplikasi frontend berbasis React dengan TypeScript dan Tailwind CSS untuk Portal Informasi Departemen Teknologi Informasi ITS.
 
-Currently, two official plugins are available:
+## Fitur Utama
+- Tampilan responsif untuk desktop dan mobile
+- Menampilkan berita dan informasi dari backend Strapi
+- Autentikasi dan halaman admin
+- Komponen UI yang reusable dan modern
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Kebutuhan Sistem
+- Node.js v18 atau lebih baru
+- npm v9 atau lebih baru
+- Git
 
-## Expanding the ESLint configuration
+## Panduan Memulai
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+### Instalasi
 
-- Configure the top-level `parserOptions` property like this:
+1. **Clone repository** (jika belum):
+   ```bash
+   git clone https://github.com/username/capstone-knowledge-management-system.git
+   cd capstone-knowledge-management-system/FECapstone
+   ```
 
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+2. **Instalasi dependensi**:
+   ```bash
+   npm install
+   # atau
+   yarn install
+   ```
+
+3. **Konfigurasi environment**:
+   Buat file `.env.local` di root directory frontend dengan isi:
+   ```
+   VITE_STRAPI_API_URL=http://localhost:1337/api
+   VITE_STRAPI_UPLOADS_URL=http://localhost:1337
+   ```
+
+### Menjalankan Aplikasi
+
+1. **Mode Development**:
+   ```bash
+   npm run dev
+   # atau
+   yarn dev
+   ```
+
+2. **Akses aplikasi**:
+   Buka [http://localhost:5173](http://localhost:5173) di browser
+
+### Build untuk Production
+
+1. **Membuat build**:
+   ```bash
+   npm run build
+   # atau
+   yarn build
+   ```
+
+2. **Preview hasil build**:
+   ```bash
+   npm run preview
+   # atau
+   yarn preview
+   ```
+
+## Struktur Proyek
+
+```
+FECapstone/
+├── public/              # Aset statis dan gambar
+├── src/                 # Kode sumber
+│   ├── api/             # Konfigurasi API dan fungsi fetching
+│   │   ├── layout/      # Komponen layout (Header, Footer)
+│   │   └── ui/          # Komponen UI reusable
+│   ├── lib/             # Utility dan helper
+│   ├── pages/           # Komponen halaman
+│   ├── App.tsx          # Komponen root
+│   └── main.tsx         # Entry point
+├── package.json         # Dependensi dan script
+└── tailwind.config.js   # Konfigurasi Tailwind CSS
 ```
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+## Panduan Development
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
+### Komponen UI
+Aplikasi menggunakan pendekatan berbasis komponen dengan beberapa komponen kustom:
+- Button, Card, Toast untuk UI elements
+- Layout komponen untuk struktur halaman
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
-```
+### Styling
+- Menggunakan Tailwind CSS untuk styling
+- Variabel warna dan tema berada di `tailwind.config.js`
+
+### Penamaan
+- Gunakan PascalCase untuk nama komponen
+- Gunakan camelCase untuk nama fungsi dan variabel
+
+## Troubleshooting
+
+- **Tidak bisa terhubung ke Strapi**: Pastikan Strapi sedang berjalan dan URL API di `.env.local` sudah benar
+- **Module not found**: Jalankan `npm install` untuk memastikan semua dependensi terinstall
+- **CSS tidak ter-load**: Pastikan PostCSS berjalan dengan benar, coba jalankan `npm run dev` ulang
+
