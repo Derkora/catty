@@ -222,3 +222,61 @@ docker ps -a | grep chatbot
 
 Menghentikan project dengan benar akan mencegah masalah ketika menjalankan project di kemudian hari dan memastikan sumber daya sistem tidak terpakai secara tidak perlu.
 
+## Protokol Start/Stop Layanan
+
+Untuk menjalankan dan menghentikan layanan secara terpisah, ikuti protokol berikut:
+
+### Menghentikan dan Menjalankan Kembali Container Ollama
+
+```bash
+# Memeriksa container yang berjalan
+docker ps
+
+# Menghentikan hanya container Ollama
+docker stop ollama
+
+# Memverifikasi container telah berhenti
+docker ps
+
+# Menjalankan kembali container Ollama
+docker start ollama
+
+# Memverifikasi container berjalan kembali
+docker ps
+```
+
+### Menjalankan Kembali Seluruh Stack Chatbot
+
+Jika Anda sudah menghentikan layanan dan ingin menjalankan kembali seluruh stack (chatbot dan Ollama):
+
+```bash
+# Masuk ke direktori chatbot
+cd ~/kuliah/capstone/capstone-knowledge-management-system/chatbot
+
+# Jalankan semua container yang didefinisikan dalam docker-compose.yml
+docker-compose up -d
+
+# Verifikasi semua container berjalan
+docker ps
+```
+
+### Memeriksa API Chatbot Berfungsi
+
+Untuk memeriksa apakah API chatbot sudah berfungsi dengan benar:
+
+```bash
+# Tes API dengan curl
+curl -X POST http://localhost:5000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Halo, apa kabar?", "role": "general"}'
+```
+
+Jika berhasil, Anda akan menerima respons JSON dari API chatbot.
+
+### Catatan Penting
+
+1. Container **Ollama** berjalan di **port 11434** - ini adalah layanan model AI
+2. Container **chatbot** berjalan di **port 5000** - ini adalah API Flask
+3. Keduanya harus berjalan agar sistem chatbot berfungsi penuh
+4. Frontend memerlukan API chatbot berjalan untuk dapat berkomunikasi dengan model AI
+
