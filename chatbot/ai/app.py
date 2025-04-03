@@ -1,8 +1,11 @@
 from flask import Flask, request, jsonify, render_template
 import requests
 import os
+from flask_cors import CORS
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
+# Simple CORS configuration allowing all origins
+CORS(app)
 
 # Konfigurasi Ollama API
 OLLAMA_URL = os.getenv("OLLAMA_HOST", "http://ollama:11434") + "/api/generate"
@@ -66,9 +69,13 @@ def home():
     return "Halaman ini tidak tersedia."
 """
 
-@app.route("/chat", methods=["POST"])
+@app.route("/chat", methods=["POST", "OPTIONS"])
 def chat():
     """Menerima input user dan mengirim permintaan ke Ollama."""
+    # Handle OPTIONS request for CORS preflight
+    if request.method == "OPTIONS":
+        return "", 200
+        
     user_message = request.json.get("message", "").strip()
     role = request.json.get("role", "general")  
 
@@ -102,4 +109,4 @@ def chat():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True) 

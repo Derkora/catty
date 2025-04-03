@@ -6,7 +6,7 @@ import {
   SheetContent, 
   SheetTrigger
 } from '../ui/sheet';
-import { Menu, X, ChevronDown, BookOpen, Home, Info, FileText } from 'lucide-react';
+import { Menu, X, ChevronDown, BookOpen, Home, Info, FileText, Bot, Sparkles } from 'lucide-react';
 import { Badge } from '../ui/badge';
 
 interface NavItem {
@@ -14,6 +14,7 @@ interface NavItem {
   href: string;
   icon?: React.ReactNode;
   children?: NavItem[];
+  highlight?: boolean;
 }
 
 const navItems: NavItem[] = [
@@ -30,6 +31,12 @@ const navItems: NavItem[] = [
   },
   { label: 'Berita', href: '/berita', icon: <FileText className="h-4 w-4" /> },
   { label: 'Tentang', href: '/tentang', icon: <Info className="h-4 w-4" /> },
+  { 
+    label: 'Tanyabot AI', 
+    href: '/chatbot', 
+    icon: <Bot className="h-4 w-4" />, 
+    highlight: true 
+  },
 ];
 
 const Header: React.FC = () => {
@@ -145,15 +152,22 @@ const Header: React.FC = () => {
                   </div>
                 ) : (
                   <Button 
-                    variant="ghost" 
+                    variant={item.highlight ? "default" : "ghost"}
                     asChild
-                    className={`flex items-center gap-2 transition-all duration-300 hover:bg-blue-50 hover:text-blue-600 ${
-                      location.pathname === item.href ? 'bg-blue-50 text-blue-600 font-medium' : ''
+                    className={`flex items-center gap-2 transition-all duration-300 ${
+                      item.highlight 
+                        ? 'bg-gradient-to-r from-blue-600 to-violet-600 hover:shadow-md text-white' 
+                        : 'hover:bg-blue-50 hover:text-blue-600'
+                    } ${
+                      location.pathname === item.href 
+                        ? (item.highlight ? 'shadow-md' : 'bg-blue-50 text-blue-600 font-medium') 
+                        : ''
                     }`}
                   >
                     <Link to={item.href} className="flex items-center gap-2">
                       {item.icon}
                       {item.label}
+                      {item.highlight && <Sparkles className="h-3 w-3 ml-1" />}
                     </Link>
                   </Button>
                 )}
@@ -225,12 +239,15 @@ const Header: React.FC = () => {
                           <Link
                             to={item.href}
                             className={`flex items-center gap-2 py-2 font-medium hover:text-blue-700 transition-colors ${
+                              item.highlight ? 'text-blue-600 bg-blue-50/50 rounded-md px-2' : ''
+                            } ${
                               location.pathname === item.href ? 'text-blue-700' : ''
                             }`}
                             onClick={() => setIsMenuOpen(false)}
                           >
                             {item.icon}
                             {item.label}
+                            {item.highlight && <Sparkles className="h-3 w-3 ml-1" />}
                           </Link>
                         )}
                       </div>

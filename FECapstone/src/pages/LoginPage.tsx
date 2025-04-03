@@ -73,29 +73,29 @@ const LoginPage: React.FC = () => {
     <div className="flex flex-col min-h-screen w-full overflow-hidden">
       <Header />
       
-      <main className="flex-grow flex items-center justify-center w-full relative py-12">
+      <main className="flex-grow flex items-center justify-center w-full relative py-12 mt-16">
         {/* Background Elements */}
-        <div className="absolute inset-0 -z-10 bg-slate-50">
+        <div className="absolute inset-0 -z-10 bg-gradient-to-b from-slate-50 to-white">
           <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-b from-white to-transparent"></div>
-          <div className="absolute top-0 right-0 w-96 h-96 bg-blue-100 rounded-full filter blur-[90px] opacity-70"></div>
-          <div className="absolute bottom-0 left-0 w-96 h-96 bg-violet-100 rounded-full filter blur-[90px] opacity-70"></div>
+          <div className="absolute top-20 right-0 w-96 h-96 bg-blue-100 rounded-full filter blur-[120px] opacity-60"></div>
+          <div className="absolute bottom-0 left-0 w-96 h-96 bg-violet-100 rounded-full filter blur-[120px] opacity-60"></div>
           <div className="absolute inset-0 bg-[url('/images/dot-pattern.png')] opacity-5"></div>
         </div>
         
         <div className="relative w-full max-w-md px-4 animate-fade-in">
-          <Card className="border-none shadow-2xl shadow-blue-800/5 backdrop-blur-sm">
-            <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-blue-600 to-violet-600 w-20 h-20 rounded-full shadow-lg flex items-center justify-center p-1">
+          <Card className="border-none shadow-xl shadow-blue-800/5 backdrop-blur-sm bg-white/90">
+            <div className="absolute -top-14 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-blue-600 to-violet-600 w-24 h-24 rounded-full shadow-lg flex items-center justify-center p-1">
               <div className="bg-white rounded-full h-full w-full flex items-center justify-center overflow-hidden">
                 <img 
                   src="/logo-its.png" 
                   alt="ITS Logo" 
-                  className="h-14 transition-transform hover:scale-110 duration-300"
+                  className="h-16 transition-transform hover:scale-110 duration-300"
                 />
               </div>
             </div>
             
-            <CardHeader className="space-y-1 pt-10">
-              <CardTitle className="text-2xl font-bold text-center bg-gradient-to-r from-blue-700 to-violet-700 bg-clip-text text-transparent">
+            <CardHeader className="space-y-1 pt-12">
+              <CardTitle className="text-2xl font-bold text-center bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent">
                 Login Mahasiswa
               </CardTitle>
               <CardDescription className="text-center">
@@ -150,11 +150,11 @@ const LoginPage: React.FC = () => {
                 </div>
               </CardContent>
               
-              <CardFooter className="flex flex-col space-y-4">
+              <CardFooter className="flex flex-col space-y-4 pb-6">
                 <Button 
                   type="submit" 
                   variant="primary" 
-                  className="w-full text-white shadow-lg shadow-blue-700/20 bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 transition-all rounded-md" 
+                  className="w-full text-white shadow-lg shadow-blue-700/20 bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 transition-all rounded-md h-11" 
                   disabled={loading}
                 >
                   {loading ? (
@@ -177,6 +177,10 @@ const LoginPage: React.FC = () => {
               </CardFooter>
             </form>
           </Card>
+
+          {/* Additional Decoration */}
+          <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-gradient-to-r from-blue-500/10 to-violet-500/10 rounded-full blur-2xl -z-10"></div>
+          <div className="absolute -top-10 -left-10 w-40 h-40 bg-gradient-to-r from-violet-500/10 to-blue-500/10 rounded-full blur-2xl -z-10"></div>
         </div>
       </main>
       

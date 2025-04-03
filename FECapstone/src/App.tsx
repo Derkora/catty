@@ -3,6 +3,7 @@ import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
 import NewsDetail from './pages/NewsDetail';
+import ChatbotPage from './pages/ChatbotPage';
 import './App.css';
 import { Toaster } from './components/ui/toaster';
 import React from 'react';
@@ -45,6 +46,9 @@ function App() {
         />
         {/* Rute untuk halaman berita detail */}
         <Route path="/news/:documentId" element={<NewsDetail />} />
+        
+        {/* Chatbot page route */}
+        <Route path="/chatbot" element={<ChatbotPage />} />
         
         {/* Tambahan route lainnya */}
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,10 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
-import NewsCard from '../components/ui/NewsCard';
 import { Button } from '../components/ui/button';
-import { getNews, NewsItem, getStrapiMedia } from '../api/strapiApi';
-import { ArrowRight, Code, Database, Globe, Lock, Cpu, ChevronDown } from 'lucide-react';
+import { ArrowRight, Code, Database, Globe, Lock, Cpu } from 'lucide-react';
 
 const customStyles = `
   @keyframes float {
@@ -106,54 +104,35 @@ const customStyles = `
 `;
 
 const LandingPage: React.FC = () => {
-    const [news, setNews] = useState<NewsItem[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
     const [visibleSection, setVisibleSection] = useState(false);
-
-    useEffect(() => {
-        const styleElement = document.createElement('style');
-        styleElement.innerHTML = customStyles;
-        document.head.appendChild(styleElement);
-        return () => {
-            document.head.removeChild(styleElement);
-        };
-    }, []);
-
+    
     useEffect(() => {
         setVisibleSection(true);
-        const fetchNews = async () => {
-            try {
-                setLoading(true);
-                console.log("Memulai pengambilan berita");
-                const response = await getNews();
-                console.log('Respons berita:', response);
-                if (response && response.data && response.data.length > 0) {
-                    setNews(response.data);
-                    console.log('Berita berhasil diambil:', response.data.length, 'item');
-                } else {
-                    console.log('Tidak ada berita dari API');
-                    setNews([]);
+        
+        const handleScroll = () => {
+            const sections = document.querySelectorAll('.fade-in-section');
+            sections.forEach(section => {
+                const sectionTop = section.getBoundingClientRect().top;
+                const isVisible = sectionTop < window.innerHeight - 100;
+                if (isVisible) {
+                    section.classList.add('is-visible');
                 }
-            } catch (error) {
-                console.error('Error fetching news:', error);
-                setNews([]);
-            } finally {
-                setLoading(false);
-            }
+            });
         };
-
-        fetchNews();
+        
+        window.addEventListener('scroll', handleScroll);
+        
+        // Trigger initially
+        handleScroll();
+        
+        return () => {
+            window.removeEventListener('scroll', handleScroll);
+        };
     }, []);
-
-    const handleScrollDown = () => {
-        const newsSection = document.getElementById('news-section');
-        if (newsSection) {
-            newsSection.scrollIntoView({ behavior: 'smooth' });
-        }
-    };
 
     return (
         <div className="flex flex-col min-h-screen w-full overflow-hidden">
+            <style dangerouslySetInnerHTML={{ __html: customStyles }} />
             <Header />
 
             <main className="flex-grow w-full mt-16">
@@ -202,13 +181,6 @@ const LandingPage: React.FC = () => {
                                     >
                                         Pelajari Program Studi
                                         <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-                                    </Button>
-                                    <Button 
-                                        variant="outline" 
-                                        size="lg" 
-                                        className="rounded-full bg-white/10 text-white border-white/20 hover:bg-white/20 transition-all"
-                                    >
-                                        Lihat Berita Terkini
                                     </Button>
                                 </div>
                                 
@@ -320,14 +292,6 @@ const LandingPage: React.FC = () => {
                         </div>
                     </div>
                     
-                    {/* Scroll Down Indicator */}
-                    <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce cursor-pointer" onClick={handleScrollDown}>
-                        <div className="flex flex-col items-center">
-                            <p className="text-blue-200 text-sm mb-2">Jelajahi Lebih Banyak</p>
-                            <ChevronDown className="h-5 w-5 text-blue-200" />
-                        </div>
-                    </div>
-                    
                     {/* Bottom Wave */}
                     <div className="absolute -bottom-1 left-0 right-0">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 200">
@@ -335,105 +299,6 @@ const LandingPage: React.FC = () => {
                         </svg>
                     </div>
                 </section>
-
-                {/* News Section */}
-                <section id="news-section" className="py-16 w-full bg-slate-50 relative">
-                    <div className="container-content">
-                        <div className="text-center mb-12 animate-fade-in">
-                            <h2 className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-700 to-violet-700 mb-4">
-                                Berita dan Pengumuman Terbaru
-                            </h2>
-                            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-                                Temukan informasi terkini seputar kegiatan dan pengumuman penting dari Departemen Teknologi Informasi
-                            </p>
-                        </div>
-
-                        {loading ? (
-                            <div className="text-center py-12">
-                                <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
-                                <p className="mt-4 text-gray-600">Memuat berita...</p>
-                            </div>
-                        ) : news.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                                {news.map((item, index) => (
-                                    <div key={item.id} className={`animate-fade-in animate-delay-${(index % 5) * 100}`}>
-                                        <NewsCard
-                                            documentId={item.documentId || item.id.toString()}
-                                            title={item.title}
-                                            description={item.description}
-                                            date={new Date(item.publishedAt).toLocaleDateString('id-ID', {
-                                                day: 'numeric',
-                                                month: 'long',
-                                                year: 'numeric',
-                                            })}
-                                            content={item.description}
-                                            imageUrl={getStrapiMedia(item.image?.url)}
-                                            author="Admin Departemen"
-                                            category="Berita"
-                                            source="Departemen IT ITS"
-                                        />
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-center py-12 bg-white rounded-lg shadow-sm">
-                                <p className="text-gray-600">Belum ada berita untuk ditampilkan.</p>
-                            </div>
-                        )}
-
-                        {news.length > 0 && (
-                            <div className="text-center mt-12 animate-fade-in animate-delay-500">
-                                <Button variant="outline" className="hover:shadow-md transition-all border-blue-600 text-blue-600 hover:bg-blue-50">
-                                    Lihat Semua Berita
-                                </Button>
-                            </div>
-                        )}
-                    </div>
-                </section>
-
-                {/* Program Unggulan Departemen Section */}
-                <section className="py-16 md:py-24 w-full relative overflow-hidden">
-                    <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 bg-blue-100 rounded-full opacity-50"></div>
-                    <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-96 h-96 bg-violet-100 rounded-full opacity-50"></div>
-
-                    <div className="container-content relative z-10">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
-                            <div className="animate-fade-in">
-                                <h2 className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-700 to-violet-700 mb-6">
-                                    Program Unggulan Departemen
-                                </h2>
-                                <p className="text-lg text-gray-700 mb-6">
-                                    Departemen Teknologi Informasi ITS fokus pada penyelenggaraan pendidikan sarjana yang mengedepankan lima konsentrasi utama, sehingga menghasilkan lulusan yang siap berinovasi di industri digital.
-                                </p>
-                                <ul className="space-y-4 mb-8">
-                                    <li className="flex items-start group">
-                                        <div className="flex-shrink-0 h-6 w-6 text-blue-600 mt-1 group-hover:text-violet-600 transition-colors">
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                            </svg>
-                                        </div>
-                                        <p className="ml-3 text-gray-700">
-                                            Program Sarjana Teknologi Informasi dengan lima konsentrasi: <span className="font-medium text-blue-600">Keamanan Siber</span>, <span className="font-medium text-violet-600">Keamanan Aplikasi</span>, <span className="font-medium text-blue-600">Integrasi Sistem</span>, <span className="font-medium text-violet-600">Layanan Awan</span>, dan <span className="font-medium text-blue-600">Internet of Things</span>.
-                                        </p>
-                                    </li>
-                                </ul>
-                                <Button
-                                    variant="primary"
-                                    className="text-white shadow-lg shadow-blue-700/20 bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 transition-all"
-                                >
-                                    Pelajari Program Studi
-                                </Button>
-                            </div>
-                            <div className="rounded-xl overflow-hidden shadow-xl animate-fade-in animate-delay-200 transform transition-all hover:scale-[1.02] card-hover float-animation">
-                                <img
-                                    src="/images/dept-it.JPG"
-                                    alt="Kegiatan Departemen IT"
-                                    className="w-full h-auto"
-                                />
-                            </div>
-                        </div>
-                    </div>
-                </section>  
             </main>
             <Footer />
         </div>
