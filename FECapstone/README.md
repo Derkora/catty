@@ -5,6 +5,7 @@ Aplikasi frontend berbasis React dengan TypeScript dan Tailwind CSS untuk Portal
 ## Fitur Utama
 - Tampilan responsif untuk desktop dan mobile
 - Menampilkan berita dan informasi dari backend Strapi
+- Asisten virtual (chatbot) dengan kemampuan render markdown
 - Autentikasi dan halaman admin
 - Komponen UI yang reusable dan modern
 
@@ -12,94 +13,212 @@ Aplikasi frontend berbasis React dengan TypeScript dan Tailwind CSS untuk Portal
 - Node.js v18 atau lebih baru
 - npm v9 atau lebih baru
 - Git
+- Docker dan Docker Compose (untuk menjalankan layanan backend)
 
-## Panduan Memulai
+## Panduan Instalasi Lengkap
 
-### Instalasi
+### 1. Clone Repository
+```bash
+git clone https://github.com/username/capstone-knowledge-management-system.git
+cd capstone-knowledge-management-system
+```
 
-1. **Clone repository** (jika belum):
+### 2. Setup Backend Chatbot
+
+1. Pastikan Docker dan Docker Compose sudah terinstall:
    ```bash
-   git clone https://github.com/username/capstone-knowledge-management-system.git
-   cd capstone-knowledge-management-system/FECapstone
+   docker --version
+   docker-compose --version
    ```
 
-2. **Instalasi dependensi**:
+2. Masuk ke direktori chatbot:
+   ```bash
+   cd chatbot
+   ```
+
+3. Jalankan container chatbot dengan Docker Compose:
+   ```bash
+   docker-compose up -d
+   ```
+
+4. Verifikasi container berjalan:
+   ```bash
+   docker-compose ps
+   ```
+   
+   Output yang diharapkan:
+   ```
+   NAME      IMAGE             COMMAND           SERVICE   CREATED         STATUS         PORTS
+   chatbot   chatbot-chatbot   "python app.py"   chatbot   XX minutes ago  Up XX minutes  0.0.0.0:5000->5000/tcp
+   ```
+
+### 3. Setup Frontend
+
+1. Masuk ke direktori frontend:
+   ```bash
+   cd ../FECapstone
+   ```
+
+2. Install dependensi:
    ```bash
    npm install
    # atau
    yarn install
    ```
 
-3. **Konfigurasi environment**:
-   Buat file `.env.local` di root directory frontend dengan isi:
+3. Tambahkan dependensi untuk markdown rendering:
+   ```bash
+   npm install react-markdown remark-gfm
+   # atau
+   yarn add react-markdown remark-gfm
+   ```
+
+4. Konfigurasi proxy di `vite.config.ts`:
+   ```bash
+   # Buka file vite.config.ts dan pastikan memiliki konfigurasi proxy:
+   
+   import { defineConfig } from 'vite'
+   import react from '@vitejs/plugin-react'
+   
+   export default defineConfig({
+     plugins: [react()],
+     server: {
+       proxy: {
+         '/api/chat': {
+           target: 'http://localhost:5000',
+           changeOrigin: true,
+           rewrite: (path) => path.replace(/^\/api/, '')
+         }
+       }
+     }
+   })
+   ```
+
+5. Konfigurasi environment:
+   Buat file `.env.local` di direktori FECapstone dengan isi:
    ```
    VITE_STRAPI_API_URL=http://localhost:1337/api
    VITE_STRAPI_UPLOADS_URL=http://localhost:1337
    ```
 
-### Menjalankan Aplikasi
+### 4. Menjalankan Aplikasi
 
-1. **Mode Development**:
+1. Pastikan backend chatbot sudah berjalan (container docker aktif)
+
+2. Jalankan frontend dalam mode development:
    ```bash
    npm run dev
    # atau
    yarn dev
    ```
 
-2. **Akses aplikasi**:
-   Buka [http://localhost:5173](http://localhost:5173) di browser
+3. Akses aplikasi di browser:
+   - Frontend: [http://localhost:5173](http://localhost:5173)
+   - Chatbot API: [http://localhost:5000](http://localhost:5000)
 
-### Build untuk Production
-
-1. **Membuat build**:
-   ```bash
-   npm run build
-   # atau
-   yarn build
-   ```
-
-2. **Preview hasil build**:
-   ```bash
-   npm run preview
-   # atau
-   yarn preview
-   ```
+4. Akses halaman chatbot di [http://localhost:5173/chatbot](http://localhost:5173/chatbot)
 
 ## Struktur Proyek
 
 ```
-FECapstone/
-├── public/              # Aset statis dan gambar
-├── src/                 # Kode sumber
-│   ├── api/             # Konfigurasi API dan fungsi fetching
-│   │   ├── layout/      # Komponen layout (Header, Footer)
-│   │   └── ui/          # Komponen UI reusable
-│   ├── lib/             # Utility dan helper
-│   ├── pages/           # Komponen halaman
-│   ├── App.tsx          # Komponen root
-│   └── main.tsx         # Entry point
-├── package.json         # Dependensi dan script
-└── tailwind.config.js   # Konfigurasi Tailwind CSS
+capstone-knowledge-management-system/
+├── FECapstone/                      # Frontend React aplikasi
+│   ├── public/                      # Aset statis dan gambar
+│   │   ├── api/                     # Konfigurasi API dan fungsi fetching
+│   │   ├── components/              # Komponen reusable
+│   │   │   ├── layout/              # Komponen layout (Header, Footer)
+│   │   │   └── ui/                  # Komponen UI reusable
+│   │   ├── lib/                     # Utility dan helper
+│   │   ├── pages/                   # Komponen halaman
+│   │   │   └── ChatbotPage.tsx      # Halaman chatbot dengan markdown rendering
+│   │   ├── App.tsx                  # Komponen root
+│   │   └── main.tsx                 # Entry point
+│   ├── package.json                 # Dependensi dan script
+│   ├── vite.config.ts               # Konfigurasi Vite dengan proxy untuk chatbot
+│   └── tailwind.config.js           # Konfigurasi Tailwind CSS
+│
+└── chatbot/                         # Backend aplikasi chatbot
+    ├── ai/                          # Source code AI chatbot
+    │   ├── app.py                   # Flask API dengan dukungan CORS
+    │   ├── behaviour/               # Template prompts untuk chatbot
+    │   ├── knowledge/               # Pengetahuan spesifik untuk chatbot
+    │   └── templates/               # Template HTML Flask
+    └── docker-compose.yml           # Konfigurasi Docker untuk menjalankan chatbot
 ```
 
-## Panduan Development
+## Fitur Chatbot
 
-### Komponen UI
-Aplikasi menggunakan pendekatan berbasis komponen dengan beberapa komponen kustom:
-- Button, Card, Toast untuk UI elements
-- Layout komponen untuk struktur halaman
-
-### Styling
-- Menggunakan Tailwind CSS untuk styling
-- Variabel warna dan tema berada di `tailwind.config.js`
-
-### Penamaan
-- Gunakan PascalCase untuk nama komponen
-- Gunakan camelCase untuk nama fungsi dan variabel
+Chatbot mendukung format markdown dalam respons, termasuk:
+- **Headers** (`#`, `##`, `###`)
+- **Bold** (`**text**`) dan **Italic** (`*text*`)
+- **Ordered lists** (`1. Item`)
+- **Unordered lists** (`- Item`)
+- **Links** (`[text](url)`)
 
 ## Troubleshooting
 
-- **Tidak bisa terhubung ke Strapi**: Pastikan Strapi sedang berjalan dan URL API di `.env.local` sudah benar
+### Masalah Frontend
+- **Tidak bisa terhubung ke Strapi**: Pastikan Strapi berjalan dan URL API di `.env.local` benar
 - **Module not found**: Jalankan `npm install` untuk memastikan semua dependensi terinstall
-- **CSS tidak ter-load**: Pastikan PostCSS berjalan dengan benar, coba jalankan `npm run dev` ulang
+- **CSS tidak ter-load**: Pastikan PostCSS berjalan benar, coba `npm run dev` ulang
+
+### Masalah Chatbot
+- **CORS error**: Pastikan CORS diaktifkan di backend dan proxy dikonfigurasi dengan benar di `vite.config.ts`
+- **Chatbot tidak merespons**: Periksa container docker berjalan dengan `docker-compose ps`
+- **Error saat menjalankan container**: Cek logs dengan `docker-compose logs chatbot`
+
+### Merestart Layanan
+```bash
+# Restart frontend
+cd FECapstone
+npm run dev
+
+# Restart chatbot
+cd chatbot
+docker-compose restart
+```
+
+## Cara Memberhentikan Project
+
+Untuk memberhentikan project dengan benar:
+
+### 1. Menghentikan Frontend
+Tekan `Ctrl+C` di terminal tempat frontend berjalan untuk menghentikan server Vite.
+
+### 2. Menghentikan Chatbot Container
+
+```bash
+# Masuk ke direktori chatbot
+cd chatbot
+
+# Hentikan chatbot container (tetap menyimpan data)
+docker-compose stop
+
+# Atau, untuk menghentikan dan menghapus container (menghapus semua state)
+docker-compose down
+```
+
+### 3. Memeriksa Status Container
+
+```bash
+# Periksa apakah semua container sudah berhenti
+docker ps
+
+# Atau periksa container yang terkait dengan project
+docker-compose ps
+```
+
+### 4. Penghentian Menyeluruh (Opsional)
+
+Jika Anda ingin menghentikan seluruh proses Docker, termasuk network dan volume:
+
+```bash
+# Hentikan dan hapus semua container, network, dan volume project
+docker-compose down -v
+
+# Pastikan tidak ada container yang masih berjalan
+docker ps -a | grep chatbot
+```
+
+Menghentikan project dengan benar akan mencegah masalah ketika menjalankan project di kemudian hari dan memastikan sumber daya sistem tidak terpakai secara tidak perlu.
 
