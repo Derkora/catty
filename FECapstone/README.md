@@ -195,7 +195,7 @@ cd chatbot
 docker-compose stop
 
 # Atau, untuk menghentikan dan menghapus container (menghapus semua state)
-docker-compose down
+   docker-compose down
 ```
 
 ### 3. Memeriksa Status Container
