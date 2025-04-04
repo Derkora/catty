@@ -6,7 +6,7 @@ services:
       - "5000:5000"
     environment:
       - OLLAMA_HOST=http://ollama:11434  # Gunakan nama container Ollama
-      - MODEL=deepseek-r1:32b
+      - MODEL=deepseek-r1:7b
     volumes:
       - ./ai/behaviour:/app/behaviour
       - ./ai/knowledge:/app/knowledge
