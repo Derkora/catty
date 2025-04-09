@@ -29,7 +29,6 @@ const navItems: NavItem[] = [
       { label: 'Kalender Akademik', href: '/akademik/kalender' },
     ]
   },
-  { label: 'Berita', href: '/berita', icon: <FileText className="h-4 w-4" /> },
   { label: 'Tentang', href: '/tentang', icon: <Info className="h-4 w-4" /> },
   { 
     label: 'Tanyabot AI', 
