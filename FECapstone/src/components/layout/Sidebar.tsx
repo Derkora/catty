@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { 
   Home, GraduationCap, Book, Calendar, Settings, ChevronLeft, ChevronRight, 
   Bell, FileText, Folder, Users, HelpCircle, BarChart 
@@ -12,7 +12,6 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ isMobile = false }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [showTooltips, setShowTooltips] = useState(false);
-  const location = useLocation();
   
   // Menunda tampilnya tooltip untuk animasi yang lebih mulus
   useEffect(() => {

@@ -6,7 +6,7 @@ import {
   SheetContent, 
   SheetTrigger
 } from '../ui/sheet';
-import { Menu, X, ChevronDown, BookOpen, Home, Info, FileText, Bot, Sparkles } from 'lucide-react';
+import { Menu, X, ChevronDown, BookOpen, Home, Info, Bot, Sparkles } from 'lucide-react';
 import { Badge } from '../ui/badge';
 
 interface NavItem {

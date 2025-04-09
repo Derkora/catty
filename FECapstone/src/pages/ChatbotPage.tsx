@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import { Button } from '../components/ui/button';
@@ -271,6 +270,8 @@ const customStyles = `
     background: rgba(241, 245, 249, 0.5);
     border-radius: 10px;
   }
+
+  
   
   .custom-scrollbar::-webkit-scrollbar-thumb {
     background: rgba(148, 163, 184, 0.5);
@@ -332,6 +333,16 @@ interface Message {
   sender: 'user' | 'bot';
   text: string;
   timestamp: Date;
+  responseTime?: number; // Waktu respon dalam ms
+}
+
+// Add new interfaces for chat history
+interface ChatSession {
+  id: string;
+  title: string;
+  messages: Message[];
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // Features section component
@@ -378,7 +389,7 @@ const formatMarkdown = (text: string) => {
   // Process tables
   formattedText = formattedText.replace(
     /\|(.+)\|\n\|([-:]+[-| :]*)\|\n((.*\|.*\n)+)/g,
-    (match, header, alignment, rows) => {
+    (_, header, alignment, rows) => {
       const headerCells = header.split('|').map((cell: string) => cell.trim());
       const alignmentCells = alignment.split('|').map((cell: string) => {
         if (cell.trim().startsWith(':') && cell.trim().endsWith(':')) return 'text-center';
@@ -452,7 +463,7 @@ const formatMarkdown = (text: string) => {
   formattedText = formattedText.replace(/\n/g, '<br>');
   
   return formattedText;
-}
+};
 
 // Add this function after the formatMarkdown function
 const copyToClipboard = (text: string) => {
@@ -463,47 +474,102 @@ const copyToClipboard = (text: string) => {
 
 const ChatbotPage: React.FC = () => {
   const { toast } = useToast();
-  const navigate = useNavigate();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [role, setRole] = useState<'general' | 'mahasigma'>('general');
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandAnimation, setExpandAnimation] = useState<'entering' | 'exiting' | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [suggestedTopics] = useState([
-    "What are the focus of the Information Technology department?",
-    "Who is the head of the Information Technology department?",
-    "When is the Information Technology department founded?",
-    "What is the prospect of the Information Technology alumni?",
-    "Why should I choose Information Technology department?",
+    "Apa saja program studi di Departemen Teknologi Informasi?",
+    "Siapa ketua Departemen Teknologi Informasi saat ini?",
+    "Kapan Departemen Teknologi Informasi didirikan?",
+    "Bagaimana prospek kerja lulusan Teknologi Informasi?",
+    "Apa keunggulan Departemen Teknologi Informasi ITS?",
+    "Berapa biaya kuliah per semester di Teknologi Informasi?",
+    "Apa saja laboratorium yang ada di Teknologi Informasi?",
+    "Bagaimana cara mendaftar di Teknologi Informasi ITS?",
   ]);
   const [ratedMessages, setRatedMessages] = useState<Record<string, 'up' | 'down'>>({});
   const fullscreenRef = useRef<HTMLDivElement>(null);
+  
+  // Add new states for chat history
+  const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [showChatHistory, setShowChatHistory] = useState(false);
 
   // Add a ref to track initial load
   const initialLoadRef = useRef(true);
 
-  // Update useEffect to only run once on component mount
+  // Update useEffect to load chat history from localStorage on mount
   useEffect(() => {
+    // Load chat sessions from localStorage
+    const savedSessions = localStorage.getItem('chatSessions');
+    if (savedSessions) {
+      try {
+        // Parse dates correctly from JSON
+        const sessions = JSON.parse(savedSessions, (key, value) => {
+          if (key === 'timestamp' || key === 'createdAt' || key === 'updatedAt') {
+            return new Date(value);
+          }
+          return value;
+        });
+        setChatSessions(sessions);
+      } catch (error) {
+        console.error('Error loading chat sessions:', error);
+      }
+    }
+
     if (initialLoadRef.current) {
-      setMessages([
-        {
-          id: '1',
-          sender: 'bot',
-          text: 'Halo! Saya adalah asisten virtual Program Studi Teknologi Informasi ITS. Apa yang ingin kamu ketahui tentang jurusan kami?',
-          timestamp: new Date(),
-        }
-      ]);
+      // Create a new chat session if none exists
+      if (!savedSessions || JSON.parse(savedSessions).length === 0) {
+        const newSessionId = Date.now().toString();
+        
+        const newSession: ChatSession = {
+          id: newSessionId,
+          title: 'New Chat',
+          messages: [], // Empty messages array to show suggestions
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        
+        setChatSessions([newSession]);
+        setActiveChatId(newSessionId);
+        setMessages([]); // Set empty messages to show suggestions
+        
+        // Save to localStorage
+        localStorage.setItem('chatSessions', JSON.stringify([newSession]));
+      } else {
+        // Set the most recent chat session as active
+        const sessions = JSON.parse(savedSessions);
+        const mostRecent = sessions.sort((a: ChatSession, b: ChatSession) => 
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        )[0];
+        
+        setActiveChatId(mostRecent.id);
+        setMessages(mostRecent.messages);
+      }
+      
       initialLoadRef.current = false;
     }
   }, []);
 
-  // Auto-scroll to the latest message
+  // Save chat sessions to localStorage whenever they change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (chatSessions.length > 0) {
+      localStorage.setItem('chatSessions', JSON.stringify(chatSessions));
+      
+      // Add toast notification for chat saving (only show if there are changes)
+      if (chatSessions.some(session => session.updatedAt > new Date(Date.now() - 1000))) {
+        toast({
+          title: "Chat Tersimpan",
+          description: "Percakapan Anda telah disimpan secara otomatis",
+          variant: "default",
+        });
+      }
+    }
+  }, [chatSessions]);
 
   const handleRoleChange = (newRole: 'general' | 'mahasigma') => {
     setRole(newRole);
@@ -512,6 +578,30 @@ const ChatbotPage: React.FC = () => {
       description: newRole === 'general' 
         ? "Mode umum aktif untuk semua pengunjung" 
         : "Mode mahasiswa aktif dengan akses informasi khusus",
+      variant: "default",
+    });
+  };
+
+  const createNewChat = () => {
+    const newSessionId = Date.now().toString();
+    // Remove the initial message so the suggestions bubble will appear
+    
+    const newSession: ChatSession = {
+      id: newSessionId,
+      title: 'New Chat',
+      messages: [], // Empty messages array to show suggestions
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    setChatSessions(prev => [newSession, ...prev]);
+    setActiveChatId(newSessionId);
+    setMessages([]); // Set empty messages to show suggestions
+    
+    // Add toast notification
+    toast({
+      title: "Chat Baru Dibuat",
+      description: "Anda dapat mulai percakapan baru dengan Tanyabot",
       variant: "default",
     });
   };
@@ -527,9 +617,35 @@ const ChatbotPage: React.FC = () => {
       timestamp: new Date(),
     };
     
-    setMessages((prev) => [...prev, userMessage]);
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
     setInputMessage('');
     setIsTyping(true);
+    
+    // Update chat session with new message
+    if (activeChatId) {
+      const updatedSessions = chatSessions.map(session => {
+        if (session.id === activeChatId) {
+          // Generate title from first user message if this is the first one
+          let updatedTitle = session.title;
+          if (session.title === 'New Chat' && updatedMessages.filter(m => m.sender === 'user').length === 1) {
+            updatedTitle = userMessage.text.length > 30 
+              ? userMessage.text.substring(0, 30) + '...'
+              : userMessage.text;
+          }
+          
+          return {
+            ...session,
+            messages: updatedMessages,
+            title: updatedTitle,
+            updatedAt: new Date()
+          };
+        }
+        return session;
+      });
+      
+      setChatSessions(updatedSessions);
+    }
     
     try {
       // Using proxied endpoint to avoid CORS issues
@@ -550,18 +666,38 @@ const ChatbotPage: React.FC = () => {
       
       const data = await response.json();
       
+      // Hitung waktu respons
+      const startTime = performance.now();
+      const endTime = performance.now();
+      const responseTime = Math.round(endTime - startTime);
+      
       // Add bot response
       setTimeout(() => {
         setIsTyping(false);
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now().toString(),
-            sender: 'bot',
-            text: data.reply.replace(/<think>[\s\S]*?<\/think>/g, ''), // Remove thinking process
-            timestamp: new Date(),
-          },
-        ]);
+        const botResponse: Message = {
+          id: Date.now().toString(),
+          sender: 'bot',
+          text: data.reply.replace(/<think>[\s\S]*?<\/think>/g, ''), // Remove thinking process
+          timestamp: new Date(),
+          responseTime: responseTime, // Tambahkan waktu respons
+        };
+        
+        const finalMessages = [...updatedMessages, botResponse];
+        setMessages(finalMessages);
+        
+        // Update chat session with bot response
+        if (activeChatId) {
+          setChatSessions(prev => prev.map(session => {
+            if (session.id === activeChatId) {
+              return {
+                ...session,
+                messages: finalMessages,
+                updatedAt: new Date()
+              };
+            }
+            return session;
+          }));
+        }
       }, 700); // Add a small delay for natural feel
       
     } catch (error) {
@@ -573,6 +709,39 @@ const ChatbotPage: React.FC = () => {
         variant: "destructive",
       });
     }
+  };
+
+  // Function to select and load a chat session
+  const selectChatSession = (sessionId: string) => {
+    const session = chatSessions.find(s => s.id === sessionId);
+    if (session) {
+      setActiveChatId(sessionId);
+      setMessages(session.messages);
+      setShowChatHistory(false); // Close the history panel after selection
+    }
+  };
+
+  // Function to delete a chat session
+  const deleteChatSession = (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering selectChatSession
+    
+    const updatedSessions = chatSessions.filter(s => s.id !== sessionId);
+    setChatSessions(updatedSessions);
+    
+    // If we're deleting the active chat, switch to another one
+    if (sessionId === activeChatId && updatedSessions.length > 0) {
+      selectChatSession(updatedSessions[0].id);
+    } else if (updatedSessions.length === 0) {
+      // If no chats remain, create a new one
+      createNewChat();
+    }
+
+    // Add toast notification for chat deletion
+    toast({
+      title: "Chat Dihapus",
+      description: "Percakapan telah berhasil dihapus",
+      variant: "destructive",
+    });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -620,9 +789,9 @@ const ChatbotPage: React.FC = () => {
     // handleSendMessage(topic);
   };
 
-  // Update resetChat function to simply reset to empty array
+  // Update resetChat function to create a new chat session
   const resetChat = () => {
-    setMessages([]);
+    createNewChat();
     setIsTyping(false);
     setInputMessage('');
   };
@@ -642,6 +811,25 @@ const ChatbotPage: React.FC = () => {
     //   headers: { 'Content-Type': 'application/json' },
     //   body: JSON.stringify({ messageId, rating })
     // });
+  };
+
+  // Function to format date for chat history display
+  const formatDate = (date: Date) => {
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const day = 24 * 60 * 60 * 1000;
+    
+    if (diff < day) {
+      return 'Today';
+    } else if (diff < 2 * day) {
+      return 'Yesterday';
+    } else {
+      return new Intl.DateTimeFormat('en-US', { 
+        month: 'short', 
+        day: 'numeric',
+        year: now.getFullYear() !== date.getFullYear() ? 'numeric' : undefined 
+      }).format(date);
+    }
   };
 
   return (
@@ -740,26 +928,17 @@ const ChatbotPage: React.FC = () => {
               {/* Animated feature cards */}
               <div className="flex flex-wrap justify-center gap-6 mt-6 mb-16 w-full max-w-4xl mx-auto">
                 {[
-                  { icon: Brain, title: "Knowledge Base", delay: "1.2s" },
-                  { icon: Zap, title: "Instant Answers", delay: "1.4s" },
-                  { icon: Sparkles, title: "Smart Responses", delay: "1.6s" }
-                ].map((feature, index) => {
-                  const Icon = feature.icon;
-                  return (
-                    <div 
-                      key={index} 
-                      className="glass-effect px-6 py-4 rounded-xl transform hover:scale-105 transition-all duration-300 cursor-pointer fade-in"
-                      style={{ animationDelay: feature.delay }}
-                    >
-                      <div className="flex items-center">
-                        <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center mr-3">
-                          <Icon className="h-4 w-4 text-white" />
-                        </div>
-                        <span className="text-white font-medium">{feature.title}</span>
-                      </div>
-                    </div>
-                  );
-                })}
+                  { icon: Brain, title: "Knowledge Base", description: "Information about the knowledge base.", delay: "1.2s" },
+                  { icon: Zap, title: "Instant Answers", description: "Get instant answers to your queries.", delay: "1.4s" },
+                  { icon: Sparkles, title: "Smart Responses", description: "Smart responses tailored to your questions.", delay: "1.6s" }
+                ].map((feature, index) => (
+                  <FeatureCard 
+                    key={index} 
+                    title={feature.title} 
+                    description={feature.description} 
+                    icon={feature.icon} 
+                  />
+                ))}
               </div>
               
               {/* Chat now button with hover effect */}
@@ -970,19 +1149,92 @@ const ChatbotPage: React.FC = () => {
                     bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden 
                     flex flex-col transition-all duration-300 transform relative glow-effect
                     ${isExpanded 
-                      ? 'fixed inset-4 md:inset-10 z-50 fullscreen-container' 
+                      ? 'fixed inset-0 m-auto h-[90vh] w-[90vw] max-h-[800px] md:max-w-6xl md:w-5/6 lg:w-4/5 xl:w-3/4 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2' 
                       : 'h-[600px] hover:shadow-2xl hover:border-blue-200'
                     }
                     ${expandAnimation === 'entering' ? 'fullscreen-enter' : 
                       expandAnimation === 'exiting' ? 'fullscreen-exit' : ''}
                   `}
                 >
+                  {/* Chat History Sidebar - Visible only when showChatHistory is true */}
+                  {showChatHistory && (
+                    <div className="absolute left-0 top-0 bottom-0 w-72 bg-white border-r border-slate-200 z-20 shadow-lg transition-all duration-300 transform translate-x-0">
+                      <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
+                        <h3 className="font-semibold text-slate-700">Chat History</h3>
+                        <button 
+                          onClick={() => setShowChatHistory(false)}
+                          className="p-1 rounded-full hover:bg-slate-200 transition-colors"
+                        >
+                          <X className="h-4 w-4 text-slate-500" />
+                        </button>
+                      </div>
+                      
+                      <div className="p-3">
+                        <button
+                          onClick={createNewChat}
+                          className="w-full py-2 px-4 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg mb-4 flex items-center justify-center hover:shadow-md transition-all"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                          New Chat
+                        </button>
+                      </div>
+                      
+                      <div className="overflow-y-auto h-[calc(100%-108px)] custom-scrollbar">
+                        {chatSessions.length === 0 ? (
+                          <div className="p-4 text-center text-slate-500">
+                            No chat history yet
+                          </div>
+                        ) : (
+                          <div className="space-y-1 p-2">
+                            {chatSessions.map(session => (
+                              <div 
+                                key={session.id} 
+                                className={`p-3 rounded-lg cursor-pointer transition-colors hover:bg-slate-100 ${activeChatId === session.id ? 'bg-blue-50 border-l-4 border-blue-500' : ''}`}
+                                onClick={() => selectChatSession(session.id)}
+                              >
+                                <div className="flex justify-between items-start">
+                                  <div className="max-w-[80%]">
+                                    <h4 className="font-medium text-slate-800 truncate">{session.title}</h4>
+                                    <p className="text-xs text-slate-500 mt-1">{formatDate(new Date(session.updatedAt))}</p>
+                                  </div>
+                                  <button
+                                    onClick={(e) => deleteChatSession(session.id, e)}
+                                    className="p-1 rounded-full hover:bg-slate-200 text-slate-400 hover:text-red-500 transition-colors"
+                                    title="Delete chat"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </div>
+                                <p className="text-xs text-slate-500 mt-1 truncate">
+                                  {session.messages.length} messages
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
                   {/* Chatbot Header */}
                   <div className={`
                     animated-gradient-bg p-4 text-white flex justify-between items-center fullscreen-header
                     ${isExpanded ? 'border-b border-white/10' : ''}
                   `}>
                     <div className="flex items-center">
+                      {/* History button */}
+                      <button
+                        onClick={() => setShowChatHistory(!showChatHistory)}
+                        className="h-8 w-8 bg-white/20 rounded-full flex items-center justify-center mr-3 hover:bg-white/30 transition-colors"
+                        title="Chat history"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      
                       <div className="h-10 w-10 bg-white/20 rounded-full flex items-center justify-center mr-3 floaty-icon">
                         <Bot className="h-5 w-5" />
                       </div>
@@ -1015,7 +1267,7 @@ const ChatbotPage: React.FC = () => {
                           <button
                             onClick={resetChat}
                             className="flex items-center space-x-1 px-2 py-1 text-xs bg-white/10 hover:bg-white/20 rounded-full text-white transition-all duration-300"
-                            title="Reset conversation"
+                            title="Start new chat"
                           >
                             <RefreshCw className="h-3 w-3 mr-1" />
                             <span>New Chat</span>
@@ -1029,7 +1281,7 @@ const ChatbotPage: React.FC = () => {
                           <button
                             onClick={resetChat}
                             className="flex items-center space-x-1 px-2 py-1 text-xs bg-white/10 hover:bg-white/20 rounded-full text-white transition-all duration-300"
-                            title="Reset conversation"
+                            title="Start new chat"
                           >
                             <RefreshCw className="h-3 w-3 mr-1" />
                             <span className="hidden md:inline">New Chat</span>
@@ -1049,85 +1301,60 @@ const ChatbotPage: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  
-                  {/* Mode selector in fullscreen (visible only in fullscreen) */}
-                  {isExpanded && (
-                    <div className="border-b border-slate-100 bg-slate-50 py-2 px-4 flex justify-center">
-                      <div className="flex space-x-3 items-center">
-                        <span className="text-xs text-slate-500">Mode:</span>
-                        <div className="bg-white rounded-full p-1 flex shadow-sm border border-slate-200">
-                          <button
-                            onClick={() => handleRoleChange('general')}
-                            className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
-                              role === 'general' 
-                                ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm' 
-                                : 'text-slate-600 hover:bg-slate-100'
-                            }`}
-                          >
-                            Umum
-                          </button>
-                          <button
-                            onClick={() => handleRoleChange('mahasigma')}
-                            className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
-                              role === 'mahasigma' 
-                                ? 'bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-sm' 
-                                : 'text-slate-600 hover:bg-slate-100'
-                            }`}
-                          >
-                            Mahasiswa
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 
                   {/* Chatbot Messages */}
                   <div className={`flex-grow overflow-y-auto p-6 ${isExpanded ? 'md:px-12' : ''} space-y-6 bg-gradient-to-b from-slate-50 to-white custom-scrollbar`}>
                     {messages.length === 0 && (
                       <div className="p-4 flex flex-col items-center fade-in">
-                        <div className="mb-6 text-center">
-                          <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-violet-500 rounded-full mx-auto flex items-center justify-center mb-4 floaty-icon shadow-lg">
-                            <Bot className="h-8 w-8 text-white" />
+                        <div className="mb-8 text-center">
+                          <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-violet-500 rounded-full mx-auto flex items-center justify-center mb-6 floaty-icon shadow-lg">
+                            <Bot className="h-10 w-10 text-white" />
                           </div>
-                          <h2 className="text-2xl font-semibold mb-2 bg-gradient-to-r from-blue-700 to-violet-700 bg-clip-text text-transparent">Selamat Datang di Tanyabot IT</h2>
-                          <p className="text-slate-500">Tanyakan apa saja tentang Departemen Teknologi Informasi ITS</p>
+                          <h2 className="text-2xl font-semibold mb-3 bg-gradient-to-r from-blue-700 to-violet-700 bg-clip-text text-transparent">Selamat Datang di Tanyabot ITS</h2>
+                          <p className="text-slate-500 max-w-xl mx-auto">Hai! Saya adalah asisten virtual Program Studi Teknologi Informasi ITS. Tanyakan apa saja yang ingin Anda ketahui tentang jurusan kami.</p>
                         </div>
-                        <div className="flex flex-wrap gap-2 justify-center max-w-2xl">
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-3xl w-full mb-8">
                           {suggestedTopics.map((topic, index) => (
                             <button
                               key={index}
                               onClick={() => handleTopicSelect(topic)}
-                              className="px-3 py-2 bg-gradient-to-r from-slate-50 to-slate-100 hover:from-blue-50 hover:to-violet-50 border border-slate-200 rounded-full text-sm transition-all duration-300 shadow-sm hover:shadow scale-in"
+                              className="px-4 py-3 bg-gradient-to-r from-slate-50 to-slate-100 hover:from-blue-50 hover:to-violet-50 border border-slate-200 rounded-xl text-left text-sm transition-all duration-300 shadow-sm hover:shadow-md scale-in flex items-start"
                               style={{ animationDelay: `${index * 0.1}s` }}
                             >
-                              {topic}
+                              <div className="bg-blue-100 text-blue-600 rounded-full p-1 mr-2 mt-0.5 flex-shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                              <span className="text-slate-700">{topic}</span>
                             </button>
                           ))}
                         </div>
                         
-                        <div className="mt-8 p-4 bg-gradient-to-r from-blue-50 to-violet-50 rounded-lg border border-blue-100 max-w-md mx-auto">
-                          <h3 className="font-medium text-blue-800 mb-2 flex items-center">
-                            <Sparkles className="h-4 w-4 mr-2 text-blue-500" />
-                            Fitur Unggulan
+                        <div className="p-5 bg-gradient-to-r from-blue-50 to-violet-50 rounded-lg border border-blue-100 max-w-lg mx-auto w-full shadow-sm">
+                          <h3 className="font-medium text-blue-800 mb-3 flex items-center">
+                            <Sparkles className="h-5 w-5 mr-2 text-blue-500" />
+                            Coba tanyakan tentang:
                           </h3>
-                          <ul className="space-y-2 text-sm text-slate-700">
-                            <li className="flex items-center">
-                              <span className="bg-blue-100 text-blue-600 rounded-full p-1 mr-2">
+                          <ul className="space-y-3 text-sm text-slate-700">
+                            <li className="flex items-center bg-white/50 p-2 rounded-md hover:bg-white/80 transition-colors">
+                              <span className="bg-blue-100 text-blue-600 rounded-full p-1 mr-3 flex-shrink-0">
                                 <Check className="h-3 w-3" />
                               </span>
-                              <span>Bertanya tentang Program Studi</span>
+                              <span>"Apa saja bidang peminatan di Departemen Teknologi Informasi?"</span>
                             </li>
-                            <li className="flex items-center">
-                              <span className="bg-blue-100 text-blue-600 rounded-full p-1 mr-2">
+                            <li className="flex items-center bg-white/50 p-2 rounded-md hover:bg-white/80 transition-colors">
+                              <span className="bg-blue-100 text-blue-600 rounded-full p-1 mr-3 flex-shrink-0">
                                 <Check className="h-3 w-3" />
                               </span>
-                              <span>Informasi Fasilitas & Laboratorium</span>
+                              <span>"Bagaimana prospek kerja lulusan Teknologi Informasi?"</span>
                             </li>
-                            <li className="flex items-center">
-                              <span className="bg-blue-100 text-blue-600 rounded-full p-1 mr-2">
+                            <li className="flex items-center bg-white/50 p-2 rounded-md hover:bg-white/80 transition-colors">
+                              <span className="bg-blue-100 text-blue-600 rounded-full p-1 mr-3 flex-shrink-0">
                                 <Check className="h-3 w-3" />
                               </span>
-                              <span>Kurikulum & Mata Kuliah</span>
+                              <span>"Berapa biaya kuliah di Teknologi Informasi ITS?"</span>
                             </li>
                           </ul>
                         </div>
@@ -1195,26 +1422,36 @@ const ChatbotPage: React.FC = () => {
                                     )}
                                   </button>
                                 </div>
-                                <div className="mt-2 flex items-center space-x-2 text-xs text-slate-500">
-                                  <span>Was this helpful?</span>
-                                  <button
-                                    onClick={() => handleRateResponse(message.id, 'up')}
-                                    className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${ratedMessages[message.id] === 'up' ? 'text-green-500 bg-green-50' : ''}`}
-                                    aria-label="Thumbs up"
-                                  >
-                                    <ThumbsUp className="h-3 w-3" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleRateResponse(message.id, 'down')}
-                                    className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${ratedMessages[message.id] === 'down' ? 'text-red-500 bg-red-50' : ''}`}
-                                    aria-label="Thumbs down"
-                                  >
-                                    <ThumbsDown className="h-3 w-3" />
-                                  </button>
-                                  {ratedMessages[message.id] && (
-                                    <span className="text-xs fade-in">
-                                      {ratedMessages[message.id] === 'up' ? 'Thanks for your feedback!' : 'Thanks for your feedback. We\'ll try to improve.'}
-                                    </span>
+                                <div className="mt-2 flex items-center justify-between">
+                                  <div className="flex items-center space-x-2 text-xs text-slate-500">
+                                    <span>Was this helpful?</span>
+                                    <button
+                                      onClick={() => handleRateResponse(message.id, 'up')}
+                                      className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${ratedMessages[message.id] === 'up' ? 'text-green-500 bg-green-50' : ''}`}
+                                      aria-label="Thumbs up"
+                                    >
+                                      <ThumbsUp className="h-3 w-3" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleRateResponse(message.id, 'down')}
+                                      className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${ratedMessages[message.id] === 'down' ? 'text-red-500 bg-red-50' : ''}`}
+                                      aria-label="Thumbs down"
+                                    >
+                                      <ThumbsDown className="h-3 w-3" />
+                                    </button>
+                                    {ratedMessages[message.id] && (
+                                      <span className="text-xs fade-in">
+                                        {ratedMessages[message.id] === 'up' ? 'Thanks for your feedback!' : 'Thanks for your feedback. We\'ll try to improve.'}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {message.responseTime && (
+                                    <div className="text-xs text-slate-400 flex items-center">
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                                      </svg>
+                                      <span title="Waktu respons">Respons: {message.responseTime}ms</span>
+                                    </div>
                                   )}
                                 </div>
                               </div>
@@ -1227,7 +1464,7 @@ const ChatbotPage: React.FC = () => {
                               message.sender === 'user' ? 'text-blue-100/70' : 'text-slate-400'
                             }`}
                           >
-                            {message.timestamp.toLocaleTimeString([], {
+                            {new Date(message.timestamp).toLocaleTimeString([], {
                               hour: '2-digit',
                               minute: '2-digit',
                             })}
@@ -1253,8 +1490,6 @@ const ChatbotPage: React.FC = () => {
                         </div>
                       </div>
                     )}
-                    
-                    <div ref={messagesEndRef}></div>
                   </div>
                   
                   {/* Chatbot Input */}

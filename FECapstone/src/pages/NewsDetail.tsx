@@ -4,7 +4,6 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Toaster } from '../components/ui/toaster';
 import { useToast } from '../lib/hooks/use-toast';
-import axios from 'axios';
 import { getNews, NewsItem, getStrapiMedia } from '../api/strapiApi';
 
 interface NewsDetailData {
