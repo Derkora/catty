@@ -41,16 +41,15 @@ function App() {
         <Route 
           path="/dashboard" 
           element={
-            <Dashboard />
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
           } 
         />
-        {/* Rute untuk halaman berita detail */}
         <Route path="/news/:documentId" element={<NewsDetail />} />
         
-        {/* Chatbot page route */}
         <Route path="/chatbot" element={<ChatbotPage />} />
         
-        {/* Tambahan route lainnya */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <Toaster />
