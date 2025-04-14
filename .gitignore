@@ -60,3 +60,9 @@ out/
 
 # Cache
 .cache 
+
+# chroma
+rag/chroma
+chatbot/ai/rag/chroma
+
+pdf-to-json/myvenv

@@ -1,0 +1,1561 @@
+{
+  "table_of_contents": [
+    {
+      "title": "DOKUMEN KURIKULUM 2023-2028\nPRODI : S1 TEKNOLOGI \nINFORMASI\nDEPARTEMEN : TEKNOLOGI INFORMASI",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          38.2685546875,
+          490.0703125
+        ],
+        [
+          551.765625,
+          490.0703125
+        ],
+        [
+          551.765625,
+          604.365234375
+        ],
+        [
+          38.2685546875,
+          604.365234375
+        ]
+      ]
+    },
+    {
+      "title": "DOKUMEN",
+      "heading_level": null,
+      "page_id": 1,
+      "polygon": [
+        [
+          86.42399597167969,
+          138.860107421875
+        ],
+        [
+          166.169921875,
+          138.860107421875
+        ],
+        [
+          166.169921875,
+          164.144775390625
+        ],
+        [
+          86.42399597167969,
+          164.144775390625
+        ]
+      ]
+    },
+    {
+      "title": "Penyusunan Kurikulum Pendidikan Tinggi",
+      "heading_level": null,
+      "page_id": 1,
+      "polygon": [
+        [
+          85.55859375,
+          175.75927734375
+        ],
+        [
+          396.654296875,
+          175.75927734375
+        ],
+        [
+          396.654296875,
+          204.3330078125
+        ],
+        [
+          85.55859375,
+          204.3330078125
+        ]
+      ]
+    },
+    {
+      "title": "Program Studi S1 Teknologi Informasi",
+      "heading_level": null,
+      "page_id": 1,
+      "polygon": [
+        [
+          86.140625,
+          208.4443359375
+        ],
+        [
+          367.552734375,
+          208.4443359375
+        ],
+        [
+          367.552734375,
+          232.701171875
+        ],
+        [
+          86.140625,
+          232.701171875
+        ]
+      ]
+    },
+    {
+      "title": "INSTITUT TEKNOLOGI SEPULUH NOPEMBER, Tahun 2023",
+      "heading_level": null,
+      "page_id": 1,
+      "polygon": [
+        [
+          85.849609375,
+          673.8466796875
+        ],
+        [
+          428.375,
+          673.8466796875
+        ],
+        [
+          428.375,
+          693.5810546875
+        ],
+        [
+          85.849609375,
+          693.5810546875
+        ]
+      ]
+    },
+    {
+      "title": "",
+      "heading_level": null,
+      "page_id": 3,
+      "polygon": [
+        [
+          248.236328125,
+          134.4404296875
+        ],
+        [
+          361.150390625,
+          134.4404296875
+        ],
+        [
+          361.150390625,
+          152.32470703125
+        ],
+        [
+          248.236328125,
+          152.32470703125
+        ]
+      ]
+    },
+    {
+      "title": "2. KATA PENGANTAR",
+      "heading_level": null,
+      "page_id": 4,
+      "polygon": [
+        [
+          225.3916015625,
+          121.90087890625
+        ],
+        [
+          387.6328125,
+          121.90087890625
+        ],
+        [
+          387.6328125,
+          138.962890625
+        ],
+        [
+          225.3916015625,
+          138.962890625
+        ]
+      ]
+    },
+    {
+      "title": "IDENTITAS PROGRAM STUDI",
+      "heading_level": null,
+      "page_id": 5,
+      "polygon": [
+        [
+          200.21875,
+          120.975830078125
+        ],
+        [
+          412.66015625,
+          120.975830078125
+        ],
+        [
+          412.66015625,
+          140.093505859375
+        ],
+        [
+          200.21875,
+          140.093505859375
+        ]
+      ]
+    },
+    {
+      "title": "1 Landasan Pengembangan Kurikulum",
+      "heading_level": null,
+      "page_id": 6,
+      "polygon": [
+        [
+          56.748046875,
+          108.9501953125
+        ],
+        [
+          528.193359375,
+          108.9501953125
+        ],
+        [
+          528.193359375,
+          186.654296875
+        ],
+        [
+          56.748046875,
+          186.654296875
+        ]
+      ]
+    },
+    {
+      "title": "1. Landasan Pengembangan Kurikulum",
+      "heading_level": null,
+      "page_id": 7,
+      "polygon": [
+        [
+          84.103515625,
+          135.571044921875
+        ],
+        [
+          337.38873291015625,
+          135.571044921875
+        ],
+        [
+          337.38873291015625,
+          151.5594482421875
+        ],
+        [
+          84.103515625,
+          151.5594482421875
+        ]
+      ]
+    },
+    {
+      "title": "1.1 Universitas Value",
+      "heading_level": null,
+      "page_id": 7,
+      "polygon": [
+        [
+          84.8310546875,
+          164.350341796875
+        ],
+        [
+          213.1689453125,
+          164.350341796875
+        ],
+        [
+          213.1689453125,
+          178.123291015625
+        ],
+        [
+          84.8310546875,
+          178.123291015625
+        ]
+      ]
+    },
+    {
+      "title": "1.2 Landasan Filosofi",
+      "heading_level": null,
+      "page_id": 7,
+      "polygon": [
+        [
+          85.10399627685547,
+          425.111328125
+        ],
+        [
+          212.732421875,
+          425.111328125
+        ],
+        [
+          212.732421875,
+          439.08984375
+        ],
+        [
+          85.10399627685547,
+          439.08984375
+        ]
+      ]
+    },
+    {
+      "title": "1.3 Landasan Historis",
+      "heading_level": null,
+      "page_id": 7,
+      "polygon": [
+        [
+          84.5400390625,
+          669.32421875
+        ],
+        [
+          214.3330078125,
+          669.32421875
+        ],
+        [
+          214.3330078125,
+          682.48046875
+        ],
+        [
+          84.5400390625,
+          682.48046875
+        ]
+      ]
+    },
+    {
+      "title": "1.4 Landasan Hukum",
+      "heading_level": null,
+      "page_id": 8,
+      "polygon": [
+        [
+          83.9580078125,
+          365.4970703125
+        ],
+        [
+          210.404296875,
+          365.4970703125
+        ],
+        [
+          210.404296875,
+          379.5630187988281
+        ],
+        [
+          83.9580078125,
+          379.5630187988281
+        ]
+      ]
+    },
+    {
+      "title": "2 Visi, Misi, dan Tujuan Pendidikan",
+      "heading_level": null,
+      "page_id": 11,
+      "polygon": [
+        [
+          59.658203125,
+          106.072265625
+        ],
+        [
+          429.248046875,
+          106.072265625
+        ],
+        [
+          429.248046875,
+          186.654296875
+        ],
+        [
+          59.658203125,
+          186.654296875
+        ]
+      ]
+    },
+    {
+      "title": "",
+      "heading_level": null,
+      "page_id": 11,
+      "polygon": [
+        [
+          371.3359375,
+          368.58056640625
+        ],
+        [
+          477.265625,
+          368.58056640625
+        ],
+        [
+          477.265625,
+          401.47119140625
+        ],
+        [
+          371.3359375,
+          401.47119140625
+        ]
+      ]
+    },
+    {
+      "title": "2. Visi, Misi, dan Tujuan Pendidikan",
+      "heading_level": null,
+      "page_id": 12,
+      "polygon": [
+        [
+          83.15771484375,
+          121.48974609375
+        ],
+        [
+          317.1851806640625,
+          121.48974609375
+        ],
+        [
+          317.1851806640625,
+          138.34619140625
+        ],
+        [
+          83.15771484375,
+          138.34619140625
+        ]
+      ]
+    },
+    {
+      "title": "1.1Visi, Misi dan Tujuan Fakultas",
+      "heading_level": null,
+      "page_id": 12,
+      "polygon": [
+        [
+          84.103515625,
+          162.911376953125
+        ],
+        [
+          270.64453125,
+          162.911376953125
+        ],
+        [
+          270.64453125,
+          177.506591796875
+        ],
+        [
+          84.103515625,
+          177.506591796875
+        ]
+      ]
+    },
+    {
+      "title": "1.2Visi, Misi dan Tujuan Departemen",
+      "heading_level": null,
+      "page_id": 13,
+      "polygon": [
+        [
+          84.61279296875,
+          263.33056640625
+        ],
+        [
+          292.1796875,
+          263.33056640625
+        ],
+        [
+          292.1796875,
+          276.89794921875
+        ],
+        [
+          84.61279296875,
+          276.89794921875
+        ]
+      ]
+    },
+    {
+      "title": "b. Misi Departemen",
+      "heading_level": null,
+      "page_id": 13,
+      "polygon": [
+        [
+          115.82421875,
+          359.12451171875
+        ],
+        [
+          217.84640502929688,
+          359.12451171875
+        ],
+        [
+          217.84640502929688,
+          372.28076171875
+        ],
+        [
+          115.82421875,
+          372.28076171875
+        ]
+      ]
+    },
+    {
+      "title": "c. Tujuan Departemen",
+      "heading_level": null,
+      "page_id": 13,
+      "polygon": [
+        [
+          115.3876953125,
+          622.455078125
+        ],
+        [
+          231.14959716796875,
+          622.455078125
+        ],
+        [
+          231.14959716796875,
+          635.611328125
+        ],
+        [
+          115.3876953125,
+          635.611328125
+        ]
+      ]
+    },
+    {
+      "title": "1.3Visi, Misi dan Tujuan Pendidikan Program Studi",
+      "heading_level": null,
+      "page_id": 14,
+      "polygon": [
+        [
+          85.10399627685547,
+          172.367431640625
+        ],
+        [
+          369.298828125,
+          172.367431640625
+        ],
+        [
+          369.298828125,
+          186.962646484375
+        ],
+        [
+          85.10399627685547,
+          186.962646484375
+        ]
+      ]
+    },
+    {
+      "title": "3 Evaluasi Kurikulum dan Tracer Study",
+      "heading_level": null,
+      "page_id": 15,
+      "polygon": [
+        [
+          56.166015625,
+          103.81103515625
+        ],
+        [
+          435.359375,
+          103.81103515625
+        ],
+        [
+          435.359375,
+          186.44873046875
+        ],
+        [
+          56.166015625,
+          186.44873046875
+        ]
+      ]
+    },
+    {
+      "title": "",
+      "heading_level": null,
+      "page_id": 15,
+      "polygon": [
+        [
+          368.42578125,
+          464.1689453125
+        ],
+        [
+          464.4609375,
+          464.1689453125
+        ],
+        [
+          464.4609375,
+          494.5927734375
+        ],
+        [
+          368.42578125,
+          494.5927734375
+        ]
+      ]
+    },
+    {
+      "title": "3. Evaluasi Kurikulum dan Tracer Study",
+      "heading_level": null,
+      "page_id": 16,
+      "polygon": [
+        [
+          84.103515625,
+          121.592529296875
+        ],
+        [
+          341.65234375,
+          121.592529296875
+        ],
+        [
+          341.65234375,
+          138.037841796875
+        ],
+        [
+          84.103515625,
+          138.037841796875
+        ]
+      ]
+    },
+    {
+      "title": "1.1Evaluasi Kurikulum",
+      "heading_level": null,
+      "page_id": 16,
+      "polygon": [
+        [
+          84.75830078125,
+          181.3095703125
+        ],
+        [
+          214.1875,
+          181.3095703125
+        ],
+        [
+          214.1875,
+          195.49365234375
+        ],
+        [
+          84.75830078125,
+          195.49365234375
+        ]
+      ]
+    },
+    {
+      "title": "1.2Tracer Study",
+      "heading_level": null,
+      "page_id": 16,
+      "polygon": [
+        [
+          96.02399444580078,
+          713.7265625
+        ],
+        [
+          185.376953125,
+          713.7265625
+        ],
+        [
+          185.376953125,
+          727.705078125
+        ],
+        [
+          96.02399444580078,
+          727.705078125
+        ]
+      ]
+    },
+    {
+      "title": "4 Profil Lulusan, Tujuan Pendidikan Prodi dan Rumusan \nCapaian Pembelajaran Lulusan (CPL)",
+      "heading_level": null,
+      "page_id": 17,
+      "polygon": [
+        [
+          58.3486328125,
+          110.903076171875
+        ],
+        [
+          508.11328125,
+          110.903076171875
+        ],
+        [
+          508.11328125,
+          231.4677734375
+        ],
+        [
+          58.3486328125,
+          231.4677734375
+        ]
+      ]
+    },
+    {
+      "title": "4. Profil Lulusan, Tujuan Pendidikan Prodi dan Rumusan Capaian \nPembelajaran Lulusan (CPL)",
+      "heading_level": null,
+      "page_id": 18,
+      "polygon": [
+        [
+          83.9580078125,
+          134.64599609375
+        ],
+        [
+          509.859375,
+          134.64599609375
+        ],
+        [
+          509.859375,
+          168.564453125
+        ],
+        [
+          83.9580078125,
+          168.564453125
+        ]
+      ]
+    },
+    {
+      "title": "1.1Profil Lulusan dan Tujuan Pendidikan Prodi",
+      "heading_level": null,
+      "page_id": 18,
+      "polygon": [
+        [
+          84.103515625,
+          177.609375
+        ],
+        [
+          349.21875,
+          177.609375
+        ],
+        [
+          349.21875,
+          194.0546875
+        ],
+        [
+          84.103515625,
+          194.0546875
+        ]
+      ]
+    },
+    {
+      "title": "Tabel 4.1. Profil Lulusan dan deskripsinya",
+      "heading_level": null,
+      "page_id": 18,
+      "polygon": [
+        [
+          191.4499969482422,
+          209.369384765625
+        ],
+        [
+          404.802734375,
+          209.369384765625
+        ],
+        [
+          404.802734375,
+          222.87115478515625
+        ],
+        [
+          191.4499969482422,
+          222.87115478515625
+        ]
+      ]
+    },
+    {
+      "title": "1.2Perumusan CPL",
+      "heading_level": null,
+      "page_id": 19,
+      "polygon": [
+        [
+          84.5400390625,
+          366.52490234375
+        ],
+        [
+          192.60800170898438,
+          366.52490234375
+        ],
+        [
+          192.60800170898438,
+          380.91455078125
+        ],
+        [
+          84.5400390625,
+          380.91455078125
+        ]
+      ]
+    },
+    {
+      "title": "CPL 1, CPL2, dan CPL3 ditetapkan sebagai berikut",
+      "heading_level": null,
+      "page_id": 20,
+      "polygon": [
+        [
+          82.02099609375,
+          120.11669921875
+        ],
+        [
+          320.47802734375,
+          120.11669921875
+        ],
+        [
+          320.47802734375,
+          132.92138671875
+        ],
+        [
+          82.02099609375,
+          132.92138671875
+        ]
+      ]
+    }
+  ],
+  "page_stats": [
+    {
+      "page_id": 0,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          17
+        ],
+        [
+          "Line",
+          7
+        ],
+        [
+          "Picture",
+          1
+        ],
+        [
+          "SectionHeader",
+          1
+        ],
+        [
+          "Text",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    },
+    {
+      "page_id": 1,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          40
+        ],
+        [
+          "Line",
+          10
+        ],
+        [
+          "TableCell",
+          8
+        ],
+        [
+          "SectionHeader",
+          4
+        ],
+        [
+          "Picture",
+          2
+        ],
+        [
+          "Text",
+          1
+        ],
+        [
+          "Table",
+          1
+        ],
+        [
+          "PageFooter",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    },
+    {
+      "page_id": 2,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          118
+        ],
+        [
+          "Line",
+          48
+        ],
+        [
+          "TableCell",
+          43
+        ],
+        [
+          "Picture",
+          2
+        ],
+        [
+          "Table",
+          2
+        ],
+        [
+          "PageFooter",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    },
+    {
+      "page_id": 3,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "TableCell",
+          36
+        ],
+        [
+          "Picture",
+          2
+        ],
+        [
+          "SectionHeader",
+          1
+        ],
+        [
+          "TableOfContents",
+          1
+        ],
+        [
+          "PageFooter",
+          1
+        ],
+        [
+          "Reference",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    },
+    {
+      "page_id": 4,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          63
+        ],
+        [
+          "Line",
+          27
+        ],
+        [
+          "Text",
+          6
+        ],
+        [
+          "Picture",
+          2
+        ],
+        [
+          "SectionHeader",
+          1
+        ],
+        [
+          "PageFooter",
+          1
+        ],
+        [
+          "Reference",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    },
+    {
+      "page_id": 5,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          75
+        ],
+        [
+          "TableCell",
+          30
+        ],
+        [
+          "Line",
+          17
+        ],
+        [
+          "Picture",
+          2
+        ],
+        [
+          "SectionHeader",
+          1
+        ],
+        [
+          "Table",
+          1
+        ],
+        [
+          "PageFooter",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    },
+    {
+      "page_id": 6,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          7
+        ],
+        [
+          "Line",
+          2
+        ],
+        [
+          "SectionHeader",
+          1
+        ],
+        [
+          "Text",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    },
+    {
+      "page_id": 7,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          148
+        ],
+        [
+          "Line",
+          32
+        ],
+        [
+          "SectionHeader",
+          4
+        ],
+        [
+          "Text",
+          4
+        ],
+        [
+          "Picture",
+          2
+        ],
+        [
+          "PageFooter",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    },
+    {
+      "page_id": 8,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          115
+        ],
+        [
+          "Line",
+          31
+        ],
+        [
+          "ListItem",
+          7
+        ],
+        [
+          "Picture",
+          2
+        ],
+        [
+          "Text",
+          1
+        ],
+        [
+          "SectionHeader",
+          1
+        ],
+        [
+          "PageFooter",
+          1
+        ],
+        [
+          "ListGroup",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    },
+    {
+      "page_id": 9,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          93
+        ],
+        [
+          "Line",
+          31
+        ],
+        [
+          "ListItem",
+          11
+        ],
+        [
+          "Picture",
+          2
+        ],
+        [
+          "PageFooter",
+          1
+        ],
+        [
+          "ListGroup",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    },
+    {
+      "page_id": 10,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          23
+        ],
+        [
+          "Line",
+          7
+        ],
+        [
+          "Picture",
+          2
+        ],
+        [
+          "ListItem",
+          2
+        ],
+        [
+          "PageFooter",
+          1
+        ],
+        [
+          "ListGroup",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    },
+    {
+      "page_id": 11,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          9
+        ],
+        [
+          "SectionHeader",
+          2
+        ],
+        [
+          "Text",
+          2
+        ],
+        [
+          "Line",
+          2
+        ],
+        [
+          "Reference",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    },
+    {
+      "page_id": 12,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          97
+        ],
+        [
+          "Line",
+          32
+        ],
+        [
+          "ListItem",
+          11
+        ],
+        [
+          "Picture",
+          2
+        ],
+        [
+          "SectionHeader",
+          2
+        ],
+        [
+          "Text",
+          2
+        ],
+        [
+          "PageFooter",
+          1
+        ],
+        [
+          "ListGroup",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    },
+    {
+      "page_id": 13,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          124
+        ],
+        [
+          "Line",
+          33
+        ],
+        [
+          "ListItem",
+          10
+        ],
+        [
+          "SectionHeader",
+          3
+        ],
+        [
+          "Text",
+          3
+        ],
+        [
+          "ListGroup",
+          3
+        ],
+        [
+          "Picture",
+          2
+        ],
+        [
+          "PageFooter",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    },
+    {
+      "page_id": 14,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          116
+        ],
+        [
+          "Line",
+          28
+        ],
+        [
+          "TableCell",
+          18
+        ],
+        [
+          "Text",
+          4
+        ],
+        [
+          "ListItem",
+          3
+        ],
+        [
+          "Picture",
+          2
+        ],
+        [
+          "SectionHeader",
+          1
+        ],
+        [
+          "Table",
+          1
+        ],
+        [
+          "Caption",
+          1
+        ],
+        [
+          "PageFooter",
+          1
+        ],
+        [
+          "TableGroup",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    },
+    {
+      "page_id": 15,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          10
+        ],
+        [
+          "SectionHeader",
+          2
+        ],
+        [
+          "Line",
+          2
+        ],
+        [
+          "Text",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    },
+    {
+      "page_id": 16,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          114
+        ],
+        [
+          "Line",
+          31
+        ],
+        [
+          "ListItem",
+          13
+        ],
+        [
+          "SectionHeader",
+          3
+        ],
+        [
+          "Picture",
+          2
+        ],
+        [
+          "Text",
+          2
+        ],
+        [
+          "PageFooter",
+          1
+        ],
+        [
+          "ListGroup",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    },
+    {
+      "page_id": 17,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          11
+        ],
+        [
+          "Line",
+          3
+        ],
+        [
+          "SectionHeader",
+          1
+        ],
+        [
+          "Text",
+          1
+        ],
+        [
+          "Reference",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    },
+    {
+      "page_id": 18,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          137
+        ],
+        [
+          "Line",
+          41
+        ],
+        [
+          "TableCell",
+          18
+        ],
+        [
+          "SectionHeader",
+          3
+        ],
+        [
+          "Picture",
+          2
+        ],
+        [
+          "Table",
+          1
+        ],
+        [
+          "Figure",
+          1
+        ],
+        [
+          "PageFooter",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    },
+    {
+      "page_id": 19,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          89
+        ],
+        [
+          "TableCell",
+          43
+        ],
+        [
+          "Line",
+          15
+        ],
+        [
+          "Picture",
+          2
+        ],
+        [
+          "PageFooter",
+          2
+        ],
+        [
+          "Table",
+          1
+        ],
+        [
+          "SectionHeader",
+          1
+        ],
+        [
+          "Text",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    },
+    {
+      "page_id": 20,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          445
+        ],
+        [
+          "Line",
+          201
+        ],
+        [
+          "TableCell",
+          23
+        ],
+        [
+          "Picture",
+          2
+        ],
+        [
+          "SectionHeader",
+          1
+        ],
+        [
+          "Table",
+          1
+        ],
+        [
+          "PageFooter",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    }
+  ],
+  "debug_data_path": "debug_data/rps"
+}
