@@ -369,13 +369,12 @@ export interface AdminUser extends Struct.CollectionTypeSchema {
   };
 }
 
-export interface ApiNewsNews extends Struct.CollectionTypeSchema {
-  collectionName: 'newses';
+export interface ApiDokumenDokumen extends Struct.CollectionTypeSchema {
+  collectionName: 'dokumens';
   info: {
-    description: '';
-    displayName: 'News';
-    pluralName: 'newses';
-    singularName: 'news';
+    displayName: 'Dokumen';
+    pluralName: 'dokumens';
+    singularName: 'dokumen';
   };
   options: {
     draftAndPublish: true;
@@ -384,14 +383,21 @@ export interface ApiNewsNews extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    description: Schema.Attribute.Text & Schema.Attribute.Required;
-    image: Schema.Attribute.Media<'images' | 'files'>;
+    fileDokumen: Schema.Attribute.Media<
+      'images' | 'files' | 'videos' | 'audios',
+      true
+    >;
+    jenisDokumen: Schema.Attribute.Enumeration<
+      ['Dokumen_MataKuliah', 'Dokumen_Administrasi']
+    >;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
-    localizations: Schema.Attribute.Relation<'oneToMany', 'api::news.news'> &
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::dokumen.dokumen'
+    > &
       Schema.Attribute.Private;
+    namaDokumen: Schema.Attribute.String;
     publishedAt: Schema.Attribute.DateTime;
-    releasedOn: Schema.Attribute.Date & Schema.Attribute.Required;
-    title: Schema.Attribute.String & Schema.Attribute.Required;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -907,7 +913,7 @@ declare module '@strapi/strapi' {
       'admin::transfer-token': AdminTransferToken;
       'admin::transfer-token-permission': AdminTransferTokenPermission;
       'admin::user': AdminUser;
-      'api::news.news': ApiNewsNews;
+      'api::dokumen.dokumen': ApiDokumenDokumen;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;
       'plugin::i18n.locale': PluginI18NLocale;
