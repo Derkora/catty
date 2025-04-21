@@ -1,0 +1,34 @@
+{
+  "kind": "collectionType",
+  "collectionName": "dokumens",
+  "info": {
+    "singularName": "dokumen",
+    "pluralName": "dokumens",
+    "displayName": "Dokumen"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "attributes": {
+    "namaDokumen": {
+      "type": "string"
+    },
+    "jenisDokumen": {
+      "type": "enumeration",
+      "enum": [
+        "Dokumen_MataKuliah",
+        "Dokumen_Administrasi"
+      ]
+    },
+    "fileDokumen": {
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ],
+      "type": "media",
+      "multiple": true
+    }
+  }
+}

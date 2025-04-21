@@ -7,6 +7,7 @@ import ChatbotPage from './pages/ChatbotPage';
 import './App.css';
 import { Toaster } from './components/ui/toaster';
 import React from 'react';
+import AdminDashboard from './pages/AdminDashboard';
 
 // Komponen sederhana untuk Dashboard (tidak lengkap, hanya placeholder)
 // const Dashboard = () => {
@@ -38,17 +39,25 @@ function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route 
+        {/* <Route 
           path="/dashboard" 
           element={
             <ProtectedRoute>
               <Dashboard />
             </ProtectedRoute>
           } 
+        /> */}
+        <Route 
+          path="/dashboard" 
+          element={
+              <Dashboard />
+          } 
         />
         <Route path="/news/:documentId" element={<NewsDetail />} />
         
         <Route path="/chatbot" element={<ChatbotPage />} />
+        
+        <Route path="/admin" element={<AdminDashboard />} />
         
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

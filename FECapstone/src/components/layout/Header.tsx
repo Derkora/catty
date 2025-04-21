@@ -278,6 +278,12 @@ const Header: React.FC = () => {
               </SheetContent>
             </Sheet>
           </div>
+
+          <div className="flex items-center gap-4">
+            <Link to="/admin" className="text-sm font-medium hover:text-blue-600 transition-colors">
+              Admin
+            </Link>
+          </div>
         </div>
       </div>
     </header>
