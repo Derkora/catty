@@ -189,7 +189,7 @@ const Dashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center pt-16">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
         <div className="flex flex-col items-center">
           <div className="h-24 w-24 relative">
             <div className="absolute inset-0 rounded-full border-t-4 border-b-4 border-blue-500 animate-spin"></div>
@@ -203,10 +203,10 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       <Header />
       
-      <main className="pt-24 pb-16 px-4 md:px-8 relative min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      <main className="pt-24 pb-16 px-4 md:px-8 relative">
         {/* Background decorative elements */}
         <div className="absolute top-0 right-0 w-1/3 h-96 bg-gradient-to-bl from-blue-500/10 to-purple-500/10 rounded-bl-full -z-10"></div>
         <div className="absolute bottom-0 left-0 w-1/4 h-64 bg-gradient-to-tr from-indigo-500/10 to-purple-500/10 rounded-tr-full -z-10"></div>
@@ -247,7 +247,7 @@ const Dashboard: React.FC = () => {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
-        </div>
+              </div>
               <div className="flex flex-col sm:flex-row gap-3">
                 <select
                   className="px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm appearance-none bg-white/70 bg-no-repeat bg-[right_1rem_center] bg-[length:1em] transition-all pr-10"
@@ -304,8 +304,8 @@ const Dashboard: React.FC = () => {
               <div className="flex items-center">
                 <div className="bg-gradient-to-br from-purple-500 to-fuchsia-600 p-4 rounded-xl mr-5 shadow-lg">
                   <Clock className="h-7 w-7 text-white" />
-        </div>
-                    <div>
+                </div>
+                <div>
                   <p className="text-sm text-purple-900/80 font-medium">Pembaruan Terakhir</p>
                   <p className="text-2xl font-bold text-purple-900">
                     {documents.length > 0
@@ -316,10 +316,10 @@ const Dashboard: React.FC = () => {
                         )
                       : '-'}
                   </p>
-                    </div>
-                  </div>
-                </Card>
-            </div>
+                </div>
+              </div>
+            </Card>
+          </div>
 
           {/* Document List */}
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-slate-200/50 p-6 md:p-8">
@@ -431,8 +431,8 @@ const Dashboard: React.FC = () => {
                       </div>
                     )}
                   </Card>
-                  ))}
-                </div>
+                ))}
+              </div>
             )}
           </div>
         </div>
@@ -454,7 +454,7 @@ const Dashboard: React.FC = () => {
                   <line x1="18" y1="6" x2="6" y2="18"></line>
                   <line x1="6" y1="6" x2="18" y2="18"></line>
                 </svg>
-                  </Button>
+              </Button>
             </div>
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
               <div className="flex items-center mb-6">
@@ -559,7 +559,7 @@ const Dashboard: React.FC = () => {
                   </div>
                 )}
               </div>
-                </div>
+            </div>
             <div className="p-5 border-t border-slate-200 bg-gradient-to-r from-slate-50 to-blue-50 flex justify-end">
               <Button 
                 variant="outline" 
@@ -570,8 +570,8 @@ const Dashboard: React.FC = () => {
               </Button>
             </div>
           </div>
-          </div>
-        )}
+        </div>
+      )}
 
       <Footer />
 
@@ -596,7 +596,7 @@ const Dashboard: React.FC = () => {
           }
         `
       }} />
-    </>
+    </div>
   );
 };
 
