@@ -4,7 +4,8 @@
   "info": {
     "singularName": "dokumen",
     "pluralName": "dokumens",
-    "displayName": "Dokumen"
+    "displayName": "Dokumen",
+    "description": ""
   },
   "options": {
     "draftAndPublish": true
@@ -21,14 +22,18 @@
       ]
     },
     "fileDokumen": {
+      "type": "media",
+      "multiple": true,
+      "required": false,
       "allowedTypes": [
         "images",
         "files",
         "videos",
         "audios"
-      ],
-      "type": "media",
-      "multiple": true
+      ]
+    },
+    "extractedDokumen": {
+      "type": "richtext"
     }
   }
 }
