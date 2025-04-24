@@ -19,9 +19,5 @@ def handle_chat():
 def handle_convert():
     return convertit.handle_pdf_upload(request)
 
-@app.route("/delete-file", methods=["POST"])
-def handle_file_deletion():
-    return convertit.handle_file_deletion(request)
-
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

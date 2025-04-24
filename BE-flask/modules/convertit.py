@@ -43,18 +43,6 @@ converter = PdfConverter(
     llm_service=config_parser.get_llm_service()
 )
 
-def delete_from_strapi(title):
-    response = requests.get(
-        f"{STRAPI_URL}/api/dokumens",
-        params={"filters[namaDokumen][$eq]": title}
-    )
-    data = response.json().get("data", [])
-    if data:
-        doc_id = data[0]["id"]
-        delete_resp = requests.delete(f"{STRAPI_URL}/api/dokumens/{doc_id}")
-        return delete_resp.ok
-    return False
-
 def handle_pdf_upload(request):
     file = request.files.get("file")
     jenis_dokumen = request.form.get("jenisDokumen")
@@ -115,13 +103,14 @@ def handle_pdf_upload(request):
 
         # Step 3: Upload Markdown ke custom route
         with open(markdown_path, "rb") as md_file:
+            markdown_filename = os.path.splitext(filename)[0] + ".md"
             upload_md_resp = requests.post(
                 f"{STRAPI_URL}/api/dokumens/{doc_id}/upload-markdown",
-                files={"file": ("converted.md", md_file, "text/markdown")},
+                files={"file": (markdown_filename, md_file, "text/markdown")}, 
                 timeout=30
             )
             upload_md_resp.raise_for_status()
-            
+
             # Return respons sukses setelah semua proses berhasil
             return jsonify({
                 "message": "Konversi dan unggahan berhasil",

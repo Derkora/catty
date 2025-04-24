@@ -149,21 +149,6 @@
       });
     }    
 
-    function deleteFile(filename) {
-      if (!confirm(`Yakin ingin menghapus "${filename}"?`)) return;
-
-      fetch("/delete-file", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: filename })
-      })
-      .then(res => res.json())
-      .then(data => {
-        alert(data.message);
-        loadFileList();
-      });
-    }
-
     function loadFileList() {
       fetch("http://localhost:1337/api/dokumens")
         .then(res => res.json())
@@ -175,13 +160,11 @@
             const title = item.namaDokumen;
             container.innerHTML += `
               <div class="file-item">
-                <span>${title}.pdf</span>
-                <button onclick="deleteFile('${title}.pdf')">Hapus</button>
+                <span>${title}</span>
               </div>`;
           });
         });
     }
-    
 
     // Load file list on page load
     window.onload = loadFileList;
