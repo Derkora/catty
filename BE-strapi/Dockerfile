@@ -17,4 +17,4 @@ RUN npm run build
 EXPOSE 1337
 
 # Jalankan Strapi dalam mode production
-CMD ["npm", "run", "start"]
+CMD ["npm", "run", "develop"]

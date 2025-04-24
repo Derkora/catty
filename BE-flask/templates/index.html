@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Chatbot AI + Upload PDF</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      text-align: center;
+      background-color: #f9f9f9;
+    }
+    #chat-container {
+      max-width: 500px;
+      margin: auto;
+      border: 1px solid #ccc;
+      padding: 15px;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    #chat-box {
+      height: 300px;
+      overflow-y: auto;
+      border-bottom: 1px solid #ccc;
+      margin-bottom: 10px;
+      padding: 10px;
+      text-align: left;
+      background: #f5f5f5;
+      border-radius: 5px;
+    }
+    input[type="text"], input[type="file"] {
+      width: calc(100% - 22px);
+      padding: 10px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      outline: none;
+    }
+    button {
+      width: 25%;
+      padding: 10px;
+      margin-top: 5px;
+      border: none;
+      background-color: #007bff;
+      color: white;
+      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    #file-list {
+      margin-top: 15px;
+      text-align: left;
+    }
+    .file-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center; 
+      background: #f9f9f9;
+      margin-bottom: 10px; 
+      padding: 12px; 
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); 
+      transition: background 0.3s, transform 0.3s; 
+    }
+    
+    .file-item:hover {
+      background: #e1f5fe; 
+      transform: translateY(-2px); 
+    }
+  </style>
+</head>
+<body>
+  <h1>Chatbot AI</h1>
+  <div id="chat-container">
+    <div id="chat-box"></div>
+    <input type="text" id="user-input" placeholder="Ketik pesan..." />
+    <button onclick="sendMessage()">Kirim</button>
+
+    <hr />
+
+    <h3>Upload Dokumen PDF</h3>
+    <label for="nama-dokumen">Nama Dokumen:</label>
+    <input type="text" id="nama-dokumen" placeholder="Masukkan nama dokumen" />
+    <input type="file" id="pdf-file" accept="application/pdf" />
+        <!-- Tambahkan ini di bawah input file PDF -->
+    <h4>Pilih Jenis Dokumen</h4>
+    <select id="jenis-dokumen">
+      <option value="Dokumen_MataKuliah">Dokumen Mata Kuliah</option>
+      <option value="Dokumen_Administrasi">Dokumen Administrasi</option>
+    </select>
+
+    <button onclick="uploadPDF()">Upload PDF</button>
+
+    <h3>Daftar Dokumen</h3>
+    <div id="file-list"></div>
+  </div>
+
+  <script>
+    function sendMessage() {
+      let inputField = document.getElementById("user-input");
+      let message = inputField.value.trim();
+      if (message === "") return;
+      inputField.value = "";
+
+      let chatBox = document.getElementById("chat-box");
+      chatBox.innerHTML += `<p><strong>Anda:</strong> ${message}</p>`;
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+      fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: message, role: "mahasiswa", use_rag: true })
+      })
+      .then(res => res.json())
+      .then(data => {
+        chatBox.innerHTML += `<p><strong>AI:</strong> ${data.reply}</p>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+      });
+    }
+
+    function uploadPDF() {
+      const fileInput = document.getElementById("pdf-file");
+      const file = fileInput.files[0];
+      const jenis = document.getElementById("jenis-dokumen").value;
+      const nama = document.getElementById("nama-dokumen").value.trim(); // ambil nama dokumen
+    
+      if (!file || !nama) return alert("Isi nama dokumen dan pilih file PDF terlebih dahulu!");
+    
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("jenisDokumen", jenis);
+      formData.append("namaDokumen", nama); // kirim ke backend
+    
+      fetch("/convert", {
+        method: "POST",
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        alert(data.message);
+        fileInput.value = "";
+        document.getElementById("nama-dokumen").value = "";
+        loadFileList();
+      });
+    }    
+
+    function deleteFile(filename) {
+      if (!confirm(`Yakin ingin menghapus "${filename}"?`)) return;
+
+      fetch("/delete-file", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: filename })
+      })
+      .then(res => res.json())
+      .then(data => {
+        alert(data.message);
+        loadFileList();
+      });
+    }
+
+    function loadFileList() {
+      fetch("http://localhost:1337/api/dokumens")
+        .then(res => res.json())
+        .then(data => {
+          const container = document.getElementById("file-list");
+          container.innerHTML = "";
+    
+          data.data.forEach(item => {
+            const title = item.namaDokumen;
+            container.innerHTML += `
+              <div class="file-item">
+                <span>${title}.pdf</span>
+                <button onclick="deleteFile('${title}.pdf')">Hapus</button>
+              </div>`;
+          });
+        });
+    }
+    
+
+    // Load file list on page load
+    window.onload = loadFileList;
+  </script>
+</body>
+</html>

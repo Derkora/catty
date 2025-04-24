@@ -32,9 +32,6 @@
         "audios"
       ]
     },
-    "extractedDokumen": {
-      "type": "richtext"
-    },
     "markdownFile": {
       "type": "media",
       "multiple": false,
@@ -42,10 +39,6 @@
       "allowedTypes": [
         "files"
       ]
-    },
-    "isProcessed": {
-      "type": "boolean",
-      "default": false
     }
   }
 }

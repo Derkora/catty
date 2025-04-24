@@ -56,14 +56,6 @@ export default {
     },
     {
       method: 'GET',
-      path: '/dokumens-unprocessed',
-      handler: 'dokumen.getUnprocessedDocuments',
-      config: {
-        auth: false,
-      },
-    },
-    {
-      method: 'GET',
       path: '/dokumens/:id/markdown-file',
       handler: 'dokumen.getMarkdownFile',
       config: {
