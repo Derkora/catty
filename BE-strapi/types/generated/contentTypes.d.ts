@@ -389,6 +389,7 @@ export interface ApiDokumenDokumen extends Struct.CollectionTypeSchema {
       'images' | 'files' | 'videos' | 'audios',
       true
     >;
+    isProcessed: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     jenisDokumen: Schema.Attribute.Enumeration<
       ['Dokumen_MataKuliah', 'Dokumen_Administrasi']
     >;
@@ -398,6 +399,7 @@ export interface ApiDokumenDokumen extends Struct.CollectionTypeSchema {
       'api::dokumen.dokumen'
     > &
       Schema.Attribute.Private;
+    markdownFile: Schema.Attribute.Media<'files'>;
     namaDokumen: Schema.Attribute.String;
     publishedAt: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;
