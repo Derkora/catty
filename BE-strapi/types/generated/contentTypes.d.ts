@@ -372,6 +372,7 @@ export interface AdminUser extends Struct.CollectionTypeSchema {
 export interface ApiDokumenDokumen extends Struct.CollectionTypeSchema {
   collectionName: 'dokumens';
   info: {
+    description: '';
     displayName: 'Dokumen';
     pluralName: 'dokumens';
     singularName: 'dokumen';
@@ -383,10 +384,12 @@ export interface ApiDokumenDokumen extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    extractedDokumen: Schema.Attribute.RichText;
     fileDokumen: Schema.Attribute.Media<
       'images' | 'files' | 'videos' | 'audios',
       true
     >;
+    isProcessed: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     jenisDokumen: Schema.Attribute.Enumeration<
       ['Dokumen_MataKuliah', 'Dokumen_Administrasi']
     >;
@@ -396,6 +399,7 @@ export interface ApiDokumenDokumen extends Struct.CollectionTypeSchema {
       'api::dokumen.dokumen'
     > &
       Schema.Attribute.Private;
+    markdownFile: Schema.Attribute.Media<'files'>;
     namaDokumen: Schema.Attribute.String;
     publishedAt: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;

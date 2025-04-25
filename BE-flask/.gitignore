@@ -129,5 +129,6 @@ dist
 build
 .strapi-updater.json
 .strapi-cloud.json
-
 data/data.db
+
+modules/__pycache__

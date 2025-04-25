@@ -1,0 +1,37 @@
+services:
+
+  strapi:
+    build: ./BE-strapi
+    container_name: strapi
+    ports:
+      - "1337:1337"
+    volumes:
+      - ./BE-strapi/data:/app/data
+    networks:
+      - ai-network
+    environment:
+      NODE_ENV: development
+      DATABASE_CLIENT: sqlite
+      DATABASE_FILENAME: ./data/data.db
+    restart: unless-stopped
+
+  chatbot:
+    build: ./BE-flask
+    container_name: chatbot
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./BE-flask/templates:/app/templates
+      - ./BE-flask/modules:/app/modules
+    networks:
+      - ai-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    restart: unless-stopped
+
+networks:
+  ai-network:
+    driver: bridge
