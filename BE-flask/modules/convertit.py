@@ -24,24 +24,32 @@ MD_TEMP_DIR = "./mdtmp"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(MD_TEMP_DIR, exist_ok=True)
 
-config_parser = ConfigParser({
-    "output_format": "markdown",
-    "disable_image_extraction": "true",
-    "use_llm": "true",
-    "llm_service": "marker.services.ollama.OllamaService",
-    "ollama_model": "deepseek-r1:1.5b",
-    "ollama_base_url": "http://host.docker.internal:11434",
-    "gemini_api_key": "dummy-ignored-key",
-    "output_dir": MD_TEMP_DIR
-})
+# Global variables for lazy loading
+converter = None
 
-converter = PdfConverter(
-    artifact_dict=create_model_dict(),
-    config=config_parser.generate_config_dict(),
-    processor_list=config_parser.get_processors(),
-    renderer=config_parser.get_renderer(),
-    llm_service=config_parser.get_llm_service()
-)
+# Lazy initialization of PdfConverter
+def init_converter():
+    global converter
+    if converter is None:
+        logger.debug("🔁 Memuat PdfConverter dengan konfigurasi...")
+        config_parser = ConfigParser({
+            "output_format": "markdown",
+            "disable_image_extraction": "true",
+            "use_llm": "true",
+            "llm_service": "marker.services.ollama.OllamaService",
+            "ollama_model": "deepseek-r1:1.5b",
+            "ollama_base_url": "http://host.docker.internal:11434",
+            "gemini_api_key": "dummy-ignored-key",
+            "output_dir": MD_TEMP_DIR
+        })
+        converter = PdfConverter(
+            artifact_dict=create_model_dict(),
+            config=config_parser.generate_config_dict(),
+            processor_list=config_parser.get_processors(),
+            renderer=config_parser.get_renderer(),
+            llm_service=config_parser.get_llm_service()
+        )
+    return converter
 
 def handle_pdf_upload(request):
     file = request.files.get("file")
@@ -56,6 +64,8 @@ def handle_pdf_upload(request):
     file.save(filepath)
 
     try:
+        # Lazy load converter
+        converter = init_converter()
         rendered = converter(filepath)
         text, *_ = text_from_rendered(rendered)
         logger.debug(f"Markdown output (preview): {text[:200]}...")

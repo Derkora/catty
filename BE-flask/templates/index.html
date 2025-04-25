@@ -6,19 +6,33 @@
   <title>Chatbot AI + Upload PDF</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-      text-align: center;
+      font-family: sans-serif;
       background-color: #f9f9f9;
+      padding: 20px;
+      text-align: center;
     }
-    #chat-container {
-      max-width: 500px;
-      margin: auto;
-      border: 1px solid #ccc;
-      padding: 15px;
+    
+    h1 {
+      margin-bottom: 20px;
+    }
+    
+    .main-container {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      align-items: flex-start;
+      max-width: 1200px;
+      margin: 0 auto;
+      flex-wrap: wrap; /* Responsif di layar kecil */
+    }
+    
+    .left-column, .right-column {
       background: white;
       border-radius: 10px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      padding: 20px;
+      width: 100%;
+      max-width: 500px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
     #chat-box {
       height: 300px;
@@ -72,37 +86,236 @@
       background: #e1f5fe; 
       transform: translateY(-2px); 
     }
+
+    :root {
+      --select-border: #ccc;
+      --select-focus: #007BFF;
+      --select-arrow: #333;
+    }
+    
+    .select {
+      display: grid;
+      grid-template-areas: "select";
+      align-items: center;
+      position: relative;
+      margin-left: auto;
+      margin-right: auto;
+    
+      min-width: 15ch;
+      max-width: 30ch;
+    
+      border: 1px solid var(--select-border);
+      border-radius: 0.25em;
+      padding: 0.25em 0.5em;
+    
+      font-size: 1rem;
+      line-height: 1.2;
+      cursor: pointer;
+    
+      background-color: #fff;
+      background-image: linear-gradient(to top, #f9f9f9, #fff 33%);
+    
+      transition: border-color 0.2s ease-in-out;
+    
+      select,
+      &::after {
+        grid-area: select;
+      }
+    
+      &:not(.select--multiple)::after {
+        content: "";
+        justify-self: end;
+        width: 0.8em;
+        height: 0.5em;
+        background-color: var(--select-arrow);
+        clip-path: polygon(100% 0%, 0 0%, 50% 100%);
+        pointer-events: none;
+        margin-right: 0.5em;
+      }
+    
+      &:hover {
+        border-color: var(--select-focus);
+      }
+    
+      &:focus-within {
+        border-color: var(--select-focus);
+        box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+      }
+    }
+    
+    .select select {
+      appearance: none;
+      background: transparent;
+      border: none;
+      padding: 0.5em 1.5em 0.5em 0.5em;
+      width: 100%;
+    
+      font-family: inherit;
+      font-size: inherit;
+      line-height: inherit;
+      cursor: pointer;
+    
+      z-index: 1;
+      outline: none;
+    }
+    
+    .select select::-ms-expand {
+      display: none;
+    }    
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 60px;
+      height: 34px;
+    }
+    
+    /* Hide default HTML checkbox */
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    
+    /* The slider */
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      -webkit-transition: .4s;
+      transition: .4s;
+    }
+    
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 26px;
+      width: 26px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      -webkit-transition: .4s;
+      transition: .4s;
+    }
+    
+    input:checked + .slider {
+      background-color: #2196F3;
+    }
+    
+    input:focus + .slider {
+      box-shadow: 0 0 1px #2196F3;
+    }
+    
+    input:checked + .slider:before {
+      -webkit-transform: translateX(26px);
+      -ms-transform: translateX(26px);
+      transform: translateX(26px);
+    }
+    
+    /* Rounded sliders */
+    .slider.round {
+      border-radius: 34px;
+    }
+    
+    .slider.round:before {
+      border-radius: 50%;
+    }
   </style>
 </head>
 <body>
-  <h1>Chatbot AI</h1>
-  <div id="chat-container">
-    <div id="chat-box"></div>
-    <input type="text" id="user-input" placeholder="Ketik pesan..." />
-    <button onclick="sendMessage()">Kirim</button>
+  <h1>Draft KMS DTI</h1>
+  <h4>Pilih Mode</h4>
+  <div class="switch-container">
+    <label class="switch">
+      <input type="checkbox" id="modeSwitch">
+      <span class="slider round"></span>
+    </label>
+    <p id="modeStatus">Mode Convertit Aktif</p>
+  </div>
 
-    <hr />
+  <div class="main-container">
+    <!-- Kolom Kiri: Chat -->
+    <div class="left-column">
+      <div id="chat-box"></div>
+      <input type="text" id="user-input" placeholder="Ketik pesan..." />
 
-    <h3>Upload Dokumen PDF</h3>
-    <label for="nama-dokumen">Nama Dokumen:</label>
-    <input type="text" id="nama-dokumen" placeholder="Masukkan nama dokumen" />
-    <input type="file" id="pdf-file" accept="application/pdf" />
-        <!-- Tambahkan ini di bawah input file PDF -->
-    <h4>Pilih Jenis Dokumen</h4>
-    <select id="jenis-dokumen">
-      <option value="Dokumen_MataKuliah">Dokumen Mata Kuliah</option>
-      <option value="Dokumen_Administrasi">Dokumen Administrasi</option>
-    </select>
+      <h4>Pilih Role</h4>
+      <div class="select" >
+        <select id="user-role">
+          <option value="general">Umum</option>
+          <option value="mahasiswa">Mahasiswa</option>
+        </select>
+      </div>
 
-    <button onclick="uploadPDF()">Upload PDF</button>
+      <button onclick="sendMessage()">Kirim</button>
+    </div>
 
-    <h3>Daftar Dokumen</h3>
-    <div id="file-list"></div>
+    <!-- Kolom Kanan: Upload PDF -->
+    <div class="right-column">
+      <h3>Upload Dokumen PDF</h3>
+
+      <label for="nama-dokumen">Nama Dokumen:</label>
+      <input type="text" id="nama-dokumen" placeholder="Masukkan nama dokumen" />
+      <input type="file" id="pdf-file" accept="application/pdf" />
+
+      <h4>Pilih Jenis Dokumen</h4>
+      <div class="select">
+        <select id="jenis-dokumen">
+          <option value="Dokumen_MataKuliah">Dokumen Mata Kuliah</option>
+          <option value="Dokumen_Administrasi">Dokumen Administrasi</option>
+        </select>
+      </div>
+
+      <button onclick="uploadPDF()">Upload PDF</button>
+
+      <h3>Daftar Dokumen</h3>
+      <div id="file-list"></div>
+    </div>
   </div>
 
   <script>
+    const switchElement = document.getElementById('modeSwitch');
+    const statusElement = document.getElementById('modeStatus');
+
+    // Load mode from localStorage (default true = use Convertit)
+    const storedMode = localStorage.getItem("useConvertit");
+    const isUsingConvertit = storedMode !== "false"; // default true
+
+    // Set the switch and status text based on the mode
+    switchElement.checked = !isUsingConvertit;
+    updateStatusText(!isUsingConvertit);
+
+    function updateStatusText(isChatbotMode) {
+      statusElement.textContent = isChatbotMode
+        ? "Mode Chatbot Aktif"
+        : "Mode Convertit Aktif";
+    }
+
+    switchElement.addEventListener("change", () => {
+      const isChecked = switchElement.checked;
+      const useConvertit = !isChecked;
+
+      // Save mode to localStorage
+      localStorage.setItem("useConvertit", useConvertit);
+
+      // Update status text
+      updateStatusText(isChecked);
+
+      // Send mode change to server
+      fetch("/set-mode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ useConvertit })
+      });
+    });
+
     function sendMessage() {
       let inputField = document.getElementById("user-input");
+      const role = document.getElementById("user-role").value;
       let message = inputField.value.trim();
       if (message === "") return;
       inputField.value = "";
@@ -114,7 +327,7 @@
       fetch("/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: message, role: "mahasiswa", use_rag: true })
+        body: JSON.stringify({ message: message, role: role, use_rag: true })
       })
       .then(res => res.json())
       .then(data => {
@@ -132,6 +345,8 @@
       if (!file || !nama) return alert("Isi nama dokumen dan pilih file PDF terlebih dahulu!");
     
       const formData = new FormData();
+      const useConvertit = localStorage.getItem("useConvertit") !== "false"; // default true
+      formData.append("useConvertit", useConvertit);
       formData.append("file", file);
       formData.append("jenisDokumen", jenis);
       formData.append("namaDokumen", nama); // kirim ke backend
@@ -147,7 +362,7 @@
         document.getElementById("nama-dokumen").value = "";
         loadFileList();
       });
-    }    
+    }
 
     function loadFileList() {
       fetch("http://localhost:1337/api/dokumens")
