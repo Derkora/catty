@@ -9,29 +9,69 @@ import { Toaster } from './components/ui/toaster';
 import React from 'react';
 import AdminDashboard from './pages/AdminDashboard';
 
-// Komponen sederhana untuk Dashboard (tidak lengkap, hanya placeholder)
-// const Dashboard = () => {
-//   return (
-//     <div className="w-full p-8">
-//       <div className="container-content">
-//         <h1 className="text-2xl font-bold mb-4">Dashboard Mahasiswa</h1>
-//         <p>Selamat datang di Dashboard Mahasiswa Departemen Teknologi Informasi!</p>
-//         <p className="mt-4">Halaman ini masih dalam pengembangan.</p>
-//       </div>
-//     </div>
-//   );
-// };
 
-// Protected Route untuk halaman yang memerlukan autentikasi
-const ProtectedRoute = ({ children }: { children: React.ReactElement }) => {
-  const isAuthenticated = localStorage.getItem('token') !== null;
-  
+interface StrapiUser {
+  id: number;
+  username: string;
+  email: string;
+  provider: string;
+  confirmed: boolean;
+  blocked: boolean;
+  createdAt: string;
+  updatedAt: string;
+  role?: { 
+    id: number;
+    name: string;
+    description: string;
+    type: string;
+  };
+}
+
+const ProtectedRoute = ({ 
+  children, 
+  allowedRoles 
+}: { 
+  children: React.ReactElement; 
+  allowedRoles?: string[]; 
+}) => {
+  const token = localStorage.getItem('token');
+  const userString = localStorage.getItem('user');
+  let user: StrapiUser | null = null;
+
+  if (userString) {
+    try {
+      user = JSON.parse(userString);
+    } catch (error) {
+      console.error("Error parsing user data from localStorage:", error);
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      return <Navigate to="/login" replace />;
+    }
+  }
+
+  console.log("ProtectedRoute: User data from localStorage:", user);
+
+  const isAuthenticated = token !== null && user !== null;
+
   if (!isAuthenticated) {
+    console.log("ProtectedRoute: Not authenticated, redirecting to /login");
     return <Navigate to="/login" replace />;
   }
+
+  if (allowedRoles && allowedRoles.length > 0) {
+    const userRole = user?.role?.name;
+    console.log("ProtectedRoute: Checking roles. User role:", userRole, "Allowed roles:", allowedRoles);
+    
+    if (!userRole || !allowedRoles.includes(userRole)) {
+      console.log("ProtectedRoute: Not authorized, redirecting to /"); 
+      return <Navigate to="/" replace />; 
+    }
+  }
   
+  console.log("ProtectedRoute: Access granted.");
   return children;
 };
+
 
 function App() {
   return (
@@ -39,27 +79,34 @@ function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
-        {/* <Route 
-          path="/dashboard" 
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          } 
-        /> */}
+    
         <Route 
           path="/dashboard" 
           element={
+            <ProtectedRoute allowedRoles={['Mahasiswa IT']}> 
               <Dashboard />
+            </ProtectedRoute>
           } 
         />
-        <Route path="/news/:documentId" element={<NewsDetail />} />
+        <Route path="/news/:documentId" element={<NewsDetail />} /> 
         
-        <Route path="/chatbot" element={<ChatbotPage />} />
+        <Route 
+          path="/chatbot" 
+          element={
+              <ChatbotPage />
+          } 
+        />
         
-        <Route path="/admin" element={<AdminDashboard />} />
+        <Route 
+          path="/admin" 
+          element={
+            <ProtectedRoute allowedRoles={['Admin IT']}> 
+              <AdminDashboard />
+            </ProtectedRoute>
+          } 
+        />
         
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} /> 
       </Routes>
       <Toaster />
     </Router>
