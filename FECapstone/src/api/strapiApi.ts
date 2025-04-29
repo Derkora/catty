@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 // Base URL dari API Strapi
-const API_URL = 'http://localhost:1337/api';
-const STRAPI_URL = 'http://localhost:1337';
+const API_URL = 'http://localhost:3000/api'; // Changed port to 3000
+const STRAPI_URL = 'http://localhost:3000'; // Changed port to 3000
 
 // Fungsi untuk mendapatkan url lengkap dari gambar Strapi
 export const getStrapiMedia = (url: string | null | undefined): string => {
@@ -20,6 +20,20 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+// Tambahkan interceptor untuk menyertakan token JWT di header Authorization
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
 // Interface untuk data berita dari Strapi yang telah disesuaikan
 export interface NewsItem {
@@ -164,6 +178,19 @@ export const getNews = async (): Promise<StrapiResponse> => {
   }
 };
 
+// Fungsi untuk mendapatkan detail user yang sedang login
+export const getAuthenticatedUser = async (): Promise<any | null> => {
+  try {
+    // The interceptor will automatically add the JWT from localStorage
+    const response = await api.get('/users/me?populate=role');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching authenticated user:', error);
+    return null;
+  }
+};
+
+
 // Fungsi untuk autentikasi pengguna
 export const loginUser = async (
   nrp: string,
@@ -181,4 +208,4 @@ export const loginUser = async (
   }
 };
 
-export default api; 
+export default api;

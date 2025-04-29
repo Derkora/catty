@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { loginUser } from '../api/strapiApi';
+import { loginUser, getAuthenticatedUser } from '../api/strapiApi'; // Added getAuthenticatedUser
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
+import axios from 'axios'; // Added axios
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
 import { Toaster } from '../components/ui/toaster';
 import { useToast } from '../lib/hooks/use-toast';
@@ -33,23 +34,45 @@ const LoginPage: React.FC = () => {
     try {
       setLoading(true);
       
-      const response = await loginUser(nrp, password);
+      const loginResponse = await loginUser(nrp, password);
       
-      if (response && response.jwt) {
+      console.log("Login API response:", loginResponse); // Log the full login response
+
+      if (loginResponse && loginResponse.jwt) {
         // Simpan token JWT ke localStorage
-        localStorage.setItem('token', response.jwt);
-        localStorage.setItem('user', JSON.stringify(response.user));
+        localStorage.setItem('token', loginResponse.jwt);
         
-        toast({
-          variant: "success",
-          title: "Login Berhasil",
-          description: "Selamat datang di dashboard mahasiswa",
-        });
+        // Fetch full user details using the new token
+        const userDetails = await getAuthenticatedUser();
         
-        // Redirect ke dashboard
-        setTimeout(() => {
-          navigate('/dashboard');
-        }, 1000);
+        console.log("Authenticated user details:", userDetails); // Log the user details from /users/me
+
+        if (userDetails) {
+          // Simpan user object lengkap (termasuk role) ke localStorage
+          localStorage.setItem('user', JSON.stringify(userDetails)); 
+          
+          toast({
+            variant: "success",
+            title: "Login Berhasil",
+            description: "Selamat datang di dashboard mahasiswa",
+          });
+          
+          // Redirect ke dashboard
+          setTimeout(() => {
+            // Determine redirect based on role if needed, or default to dashboard
+            // For now, redirect to dashboard as per original logic
+            navigate('/dashboard'); 
+          }, 1000);
+        } else {
+           // Handle case where fetching user details fails after successful login
+           console.error("Failed to fetch user details after login.");
+           localStorage.removeItem('token'); // Clear token if user details can't be fetched
+           toast({
+            variant: "destructive",
+            title: "Login Gagal",
+            description: "Gagal mendapatkan detail pengguna. Silakan coba lagi.",
+          });
+        }
       } else {
         toast({
           variant: "destructive",
@@ -58,12 +81,25 @@ const LoginPage: React.FC = () => {
         });
       }
     } catch (err) {
-      toast({
-        variant: "destructive",
-        title: "Terjadi Kesalahan",
-        description: "Gagal terhubung ke server. Silakan coba lagi.",
-      });
-      console.error('Login error:', err);
+      console.error('Login process error:', err); // Log the overall error
+      // Check if it's an Axios error with a response
+      if (axios.isAxiosError(err) && err.response) {
+        console.error('Login error response data:', err.response.data);
+        console.error('Login error response status:', err.response.status);
+        // Display a more specific error message if available from Strapi
+        const errorMessage = err.response.data?.error?.message || "Gagal terhubung ke server. Silakan coba lagi.";
+         toast({
+          variant: "destructive",
+          title: "Terjadi Kesalahan",
+          description: errorMessage,
+        });
+      } else {
+         toast({
+          variant: "destructive",
+          title: "Terjadi Kesalahan",
+          description: "Gagal terhubung ke server. Silakan coba lagi.",
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -190,4 +226,4 @@ const LoginPage: React.FC = () => {
   );
 };
 
-export default LoginPage; 
+export default LoginPage;

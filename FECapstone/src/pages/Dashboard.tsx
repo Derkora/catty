@@ -3,7 +3,7 @@ import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { FileText, Download, RefreshCw, Search, Filter, BookOpen, Calendar, Clock, FileArchive, ExternalLink, ChevronRight, Tag, FileImage, File, Sparkles } from 'lucide-react';
+import { FileText, Download, RefreshCw, Search, BookOpen, Calendar, Clock, FileArchive, ExternalLink, ChevronRight, Tag, FileImage, File, Sparkles } from 'lucide-react';
 import axios from 'axios';
 import { API_TOKEN, API_BASE_URL } from '../config';
 
@@ -163,11 +163,7 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const getFileUrl = (mimeType: string) => {
-    // This is a placeholder function to get the correct preview URL based on file type
-    // In a real implementation, you would return the appropriate URL from the file object
-    return '/placeholder.png';
-  };
+ 
 
   const handleDownloadFile = (url: string, filename: string) => {
     const fullUrl = `${API_BASE_URL}${url}`;
@@ -398,18 +394,18 @@ const Dashboard: React.FC = () => {
                         </Button>
                       </div>
                     </div>
-                    
-                    {doc.fileDokumen.length > 0 && (
+
+                    {doc.fileDokumen?.length > 0 && (
                       <div className="p-4 bg-slate-100/50 border-t border-slate-200">
                         <div className="flex flex-wrap gap-2">
                           {doc.fileDokumen.slice(0, 3).map(file => (
-                            <div 
-                              key={file.id} 
+                            <div
+                              key={file.id}
                               className="flex items-center space-x-2 bg-white p-2 rounded-lg border border-slate-200 shadow-sm hover:shadow transition-all"
                             >
                               {file.mime.startsWith('image/') && file.formats && file.formats.thumbnail && file.formats.thumbnail.url ? (
-                                <img 
-                                  src={`${API_BASE_URL}${file.formats.thumbnail.url}`} 
+                                <img
+                                  src={`${API_BASE_URL}${file.formats.thumbnail.url}`}
                                   alt={file.name}
                                   className="w-9 h-9 object-cover rounded-lg shadow-sm"
                                 />
@@ -421,7 +417,7 @@ const Dashboard: React.FC = () => {
                               <span className="text-xs font-medium truncate max-w-[120px]">{file.name}</span>
                             </div>
                           ))}
-                          
+
                           {doc.fileDokumen.length > 3 && (
                             <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-sm hover:shadow transition-all">
                               <span className="text-xs font-medium">+{doc.fileDokumen.length - 3} file lainnya</span>
@@ -600,4 +596,4 @@ const Dashboard: React.FC = () => {
   );
 };
 
-export default Dashboard; 
+export default Dashboard;

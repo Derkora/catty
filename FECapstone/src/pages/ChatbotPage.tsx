@@ -6,7 +6,7 @@ import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
 import { Toaster } from '../components/ui/toaster';
 import { useToast } from '../lib/hooks/use-toast';
-import { Bot, User, Send, Brain, Zap, Sparkles, Wand2, LucideIcon, X, Maximize, Minimize, Copy, ThumbsUp, ThumbsDown, RefreshCw, Check, HelpCircle, InfoIcon, CheckCircle } from 'lucide-react';
+import { Bot, User, Send, Brain, Zap, Sparkles, Wand2, LucideIcon, X, Maximize, Minimize, Copy, RefreshCw, Check, HelpCircle, InfoIcon, CheckCircle } from 'lucide-react';
 
 // Custom styles for animations
 const customStyles = `
@@ -327,16 +327,14 @@ const customStyles = `
   }
 `;
 
-// Types for our messages
 interface Message {
   id: string;
   sender: 'user' | 'bot';
   text: string;
   timestamp: Date;
-  responseTime?: number; // Waktu respon dalam ms
+  responseTime?: number;
 }
 
-// Add new interfaces for chat history
 interface ChatSession {
   id: string;
   title: string;
@@ -345,7 +343,6 @@ interface ChatSession {
   updatedAt: Date;
 }
 
-// Features section component
 const FeatureCard: React.FC<{
   title: string;
   description: string;
@@ -366,11 +363,9 @@ const FeatureCard: React.FC<{
   );
 };
 
-// Replace the formatMarkdown function with this enhanced version
 const formatMarkdown = (text: string) => {
   if (!text) return '';
   
-  // Process code blocks with syntax highlighting
   let formattedText = text.replace(
     /```([a-z]*)\n([\s\S]*?)```/g, 
     (_, language, code) => {
@@ -378,7 +373,6 @@ const formatMarkdown = (text: string) => {
     }
   );
   
-  // Process inline code
   formattedText = formattedText.replace(
     /`([^`]+)`/g, 
     (_, code) => {
@@ -481,6 +475,8 @@ const ChatbotPage: React.FC = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandAnimation, setExpandAnimation] = useState<'entering' | 'exiting' | null>(null);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [user, setUser] = useState<any | null>(null); // Use 'any' or define a StrapiUser interface if needed
   const [suggestedTopics] = useState([
     "Apa saja program studi di Departemen Teknologi Informasi?",
     "Siapa ketua Departemen Teknologi Informasi saat ini?",
@@ -491,8 +487,30 @@ const ChatbotPage: React.FC = () => {
     "Apa saja laboratorium yang ada di Teknologi Informasi?",
     "Bagaimana cara mendaftar di Teknologi Informasi ITS?",
   ]);
-  const [ratedMessages, setRatedMessages] = useState<Record<string, 'up' | 'down'>>({});
   const fullscreenRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Load user from localStorage
+    const token = localStorage.getItem('token');
+    const userString = localStorage.getItem('user');
+    if (token && userString) {
+      try {
+        const parsedUser = JSON.parse(userString);
+        setUser(parsedUser);
+        setIsAuthenticated(true);
+      } catch (error) {
+        console.error("Error parsing user data:", error);
+        // Clear invalid data
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setIsAuthenticated(false);
+        setUser(null);
+      }
+    } else {
+      setIsAuthenticated(false);
+      setUser(null);
+    }
+  }, []);
   
   // Add new states for chat history
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
@@ -794,23 +812,6 @@ const ChatbotPage: React.FC = () => {
     createNewChat();
     setIsTyping(false);
     setInputMessage('');
-  };
-
-  const handleRateResponse = (messageId: string, rating: 'up' | 'down') => {
-    // Update local state
-    setRatedMessages(prev => ({
-      ...prev,
-      [messageId]: rating
-    }));
-    
-    // Here you would typically send this rating to your backend
-    console.log(`Message ${messageId} rated ${rating}`);
-    // Example backend call:
-    // fetch('/api/rate-response', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ messageId, rating })
-    // });
   };
 
   // Function to format date for chat history display
@@ -1255,11 +1256,13 @@ const ChatbotPage: React.FC = () => {
                             >
                               Mode Umum
                             </Button>
-                            <Button 
-                              onClick={() => handleRoleChange('mahasigma')} 
-                              size="sm" 
-                              variant={role === 'mahasigma' ? 'default' : 'outline'} 
+                           
+                            <Button
+                              onClick={() => handleRoleChange('mahasigma')}
+                              size="sm"
+                              variant={role === 'mahasigma' ? 'default' : 'outline'}
                               className={`rounded-full text-xs transition-all duration-300 ${role === 'mahasigma' ? 'bg-white text-violet-700 shadow-lg' : 'bg-white/10 text-white border-white/30 hover:bg-white/20'}`}
+                              disabled={!isAuthenticated || user?.role?.name !== 'Mahasiswa IT'}
                             >
                               Mode Mahasiswa
                             </Button>
@@ -1274,34 +1277,20 @@ const ChatbotPage: React.FC = () => {
                           </button>
                         </>
                       )}
-                      
-                      {/* Always visible buttons */}
-                      <div className="flex items-center gap-1">
-                        {isExpanded && (
-                          <button
-                            onClick={resetChat}
-                            className="flex items-center space-x-1 px-2 py-1 text-xs bg-white/10 hover:bg-white/20 rounded-full text-white transition-all duration-300"
-                            title="Start new chat"
-                          >
-                            <RefreshCw className="h-3 w-3 mr-1" />
-                            <span className="hidden md:inline">New Chat</span>
-                          </button>
-                        )}
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleExpand();
-                          }}
-                          className="bg-white/10 text-white hover:bg-white/20 rounded-full h-8 w-8 transition-all duration-300"
-                        >
-                          {isExpanded ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
-                        </Button>
-                      </div>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleExpand();
+                        }}
+                        className="bg-white/10 text-white hover:bg-white/20 rounded-full h-8 w-8 transition-all duration-300"
+                      >
+                        {isExpanded ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+                      </Button>
                     </div>
                   </div>
-                
+
                   {/* Chatbot Messages */}
                   <div className={`flex-grow overflow-y-auto p-6 ${isExpanded ? 'md:px-12' : ''} space-y-6 bg-gradient-to-b from-slate-50 to-white custom-scrollbar`}>
                     {messages.length === 0 && (
@@ -1422,38 +1411,14 @@ const ChatbotPage: React.FC = () => {
                                     )}
                                   </button>
                                 </div>
-                                <div className="mt-2 flex items-center justify-between">
-                                  <div className="flex items-center space-x-2 text-xs text-slate-500">
-                                    <span>Was this helpful?</span>
-                                    <button
-                                      onClick={() => handleRateResponse(message.id, 'up')}
-                                      className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${ratedMessages[message.id] === 'up' ? 'text-green-500 bg-green-50' : ''}`}
-                                      aria-label="Thumbs up"
-                                    >
-                                      <ThumbsUp className="h-3 w-3" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleRateResponse(message.id, 'down')}
-                                      className={`p-1 rounded-full hover:bg-slate-100 transition-colors ${ratedMessages[message.id] === 'down' ? 'text-red-500 bg-red-50' : ''}`}
-                                      aria-label="Thumbs down"
-                                    >
-                                      <ThumbsDown className="h-3 w-3" />
-                                    </button>
-                                    {ratedMessages[message.id] && (
-                                      <span className="text-xs fade-in">
-                                        {ratedMessages[message.id] === 'up' ? 'Thanks for your feedback!' : 'Thanks for your feedback. We\'ll try to improve.'}
-                                      </span>
-                                    )}
+                                {message.responseTime && (
+                                  <div className="text-xs mt-2 text-slate-400 flex items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                                    </svg>
+                                    <span title="Waktu respons">Respons: {message.responseTime}ms</span>
                                   </div>
-                                  {message.responseTime && (
-                                    <div className="text-xs text-slate-400 flex items-center">
-                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                                      </svg>
-                                      <span title="Waktu respons">Respons: {message.responseTime}ms</span>
-                                    </div>
-                                  )}
-                                </div>
+                                )}
                               </div>
                             ) : (
                               message.text
@@ -1587,4 +1552,4 @@ const ChatbotPage: React.FC = () => {
   );
 };
 
-export default ChatbotPage; 
+export default ChatbotPage;
