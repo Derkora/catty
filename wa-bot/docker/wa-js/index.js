@@ -4,20 +4,9 @@ const axios = require('axios');
 
 // Buat client WhatsApp dengan LocalAuth
 const client = new Client({
-    authStrategy: new LocalAuth({
-        dataPath: './auth'
-    }),
+    authStrategy: new LocalAuth(),
     puppeteer: {
-        headless: 'new',
-        executablePath: '/usr/bin/google-chrome',
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--disable-gpu',
-            '--window-size=1920x1080'
-        ]
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
     }
 });
 
