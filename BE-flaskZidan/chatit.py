@@ -75,7 +75,7 @@ model_norm = HuggingFaceBgeEmbeddings(
 )
 
 # LLM initialization
-llm = Ollama(model="qwen2.5:7b-instruct")
+llm = Ollama(model="qwen2.5:7b-instruct", base_url="http://host.docker.internal:11434")
 
 # Global variables for persistence
 vectordbs = {
