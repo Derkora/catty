@@ -266,6 +266,11 @@ def health_check():
     
 
 @app.route('/api/query', methods=['POST'])
+def query_rag_backward_compatible():
+    return query_rag()
+
+
+@app.route('/chat', methods=['POST'])  # Changed from /api/query
 def query_rag():
     response_template = {
         "result": None,
@@ -418,6 +423,13 @@ def rebuildrag():
         return jsonify({"status": "rebuild completed"})
     except Exception as e:
         return jsonify({"status": "rebuild failed", "error": str(e)}), 500
+
+
+from flask import send_from_directory
+
+@app.route('/')
+def serve_index():
+    return send_from_directory('templates', 'index.html')
 
 if __name__ == '__main__':
     try:

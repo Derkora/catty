@@ -92,19 +92,31 @@ def process_queue():
                 except Exception as e:
                     print(f"Failed to send rebuild signal: {e}")
 
-@app.route('/upload', methods=['POST'])
+@app.route('/convert', methods=['POST'])
 def upload_file():
-    if 'file' not in request.files:
-        return 'No file', 400
+    # Add namaDokumen handling
+    nama_dokumen = request.form.get('namaDokumen')
+    if not nama_dokumen:
+        return 'Document name required', 400
+        
+    # Rename file using namaDokumen
     file = request.files['file']
-    group = request.form.get('group')
+    original_filename = f"{nama_dokumen}.pdf"  # Preserve PDF extension
+    original_path = os.path.join(original_dir, original_filename)
     
-    if not group:
-        return 'No group specified', 400
-    if group not in ALLOWED_GROUPS:
-        return 'Invalid group', 400
-    if file.filename == '':
-        return 'No file', 400
+    file = request.files['file']
+    jenis = request.form.get('jenisDokumen')  # Changed from 'group'
+    
+    # Map document types to groups
+    group_mapping = {
+        'Dokumen_MataKuliah': 'mahasiswa',
+        'Dokumen_Administrasi': 'umum'
+    }
+    
+    if not jenis or jenis not in group_mapping:
+        return 'Invalid document type', 400
+        
+    group = group_mapping[jenis]
     
     if file.filename.lower().endswith('.pdf'):
         original_dir = 'original'
