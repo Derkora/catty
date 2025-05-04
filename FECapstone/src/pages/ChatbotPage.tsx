@@ -472,7 +472,7 @@ const ChatbotPage: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [role, setRole] = useState<'general' | 'mahasigma'>('general');
+  const [role, setRole] = useState<'general' | 'mahasiswa'>('general');
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandAnimation, setExpandAnimation] = useState<'entering' | 'exiting' | null>(null);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
@@ -590,7 +590,7 @@ const ChatbotPage: React.FC = () => {
     }
   }, [chatSessions]);
 
-  const handleRoleChange = (newRole: 'general' | 'mahasigma') => {
+  const handleRoleChange = (newRole: 'general' | 'mahasiswa') => {
     setRole(newRole);
     toast({
       title: "Mode Chatbot Berubah",
@@ -676,6 +676,7 @@ const ChatbotPage: React.FC = () => {
         body: JSON.stringify({
           message: inputMessage,
           role: role,
+          use_rag: true,
         })
       });
       
@@ -1259,10 +1260,10 @@ const ChatbotPage: React.FC = () => {
                             </Button>
                            
                             <Button
-                              onClick={() => handleRoleChange('mahasigma')}
+                              onClick={() => handleRoleChange('mahasiswa')}
                               size="sm"
-                              variant={role === 'mahasigma' ? 'default' : 'outline'}
-                              className={`rounded-full text-xs transition-all duration-300 ${role === 'mahasigma' ? 'bg-white text-violet-700 shadow-lg' : 'bg-white/10 text-white border-white/30 hover:bg-white/20'}`}
+                              variant={role === 'mahasiswa' ? 'default' : 'outline'}
+                              className={`rounded-full text-xs transition-all duration-300 ${role === 'mahasiswa' ? 'bg-white text-violet-700 shadow-lg' : 'bg-white/10 text-white border-white/30 hover:bg-white/20'}`}
                               disabled={!isAuthenticated || user?.role?.name !== 'Mahasiswa IT'}
                             >
                               Mode Mahasiswa

@@ -112,8 +112,7 @@ def init_retriever(knowledge_text):
             embedding,
             persist_directory=PERSIST_DIRECTORY
         )
-        # ⬇️ tambahkan ini untuk memaksa simpan
-        db._client.persist()
+        db.persist()
         print("💾 Vectorstore berhasil disimpan.")
 
     return db.as_retriever(search_kwargs={"k": 3})
