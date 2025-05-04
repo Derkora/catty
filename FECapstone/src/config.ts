@@ -1,25 +1,17 @@
-// Centralized configuration file for environment variables
-// Uses a fallback mechanism to support different frameworks and handle when env vars aren't available
+// Centralized configuration using Vite's environment variables
 
-// API Token for Strapi authentication
-export const API_TOKEN = 
-  // Check for Create React App style env vars
-  (typeof window !== 'undefined' && window.__ENV && window.__ENV.REACT_APP_API_TOKEN) ||
-  // Fallback to hardcoded value if not set
-  "9547c5c312fd7b1307cbb2c61b77378890b8bdb9fc3240cbd673e5765fcf0982d4a08e856569236026a32a593260244d6008960605b76214085249fb4e8d0f17862baeea6b4b87c6840fb2a128223dfdb85b34719d4664e054d0dbaecc4985249f9d092769dc508a50d9cf96797a4997be4c7b713b93ac79a0b45b981bd29f89";
+// Base URL for API endpoints, read from .env files
+// Vite exposes variables prefixed with VITE_ via import.meta.env
+// Provide a default fallback for safety, although Vite should inject the value.
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:1337'; // Strapi URL
 
-// Base URL for API endpoints
-export const API_BASE_URL = 
-  // Check for Create React App style env vars
-  (typeof window !== 'undefined' && window.__ENV && window.__ENV.REACT_APP_API_BASE_URL) ||
-  // Fallback to default value
-  "http://localhost:3000";
+// Flask API Base URL
+export const FLASK_API_BASE_URL = import.meta.env.VITE_FLASK_API_BASE_URL || 'http://localhost:5000';
 
-// Interface to make TypeScript aware of our injected variables
-declare global {
-  interface Window {
-    __ENV?: {
-      [key: string]: string;
-    };
-  }
-} 
+// Note: Storing sensitive tokens directly in frontend code or .env files 
+// accessible by the frontend is generally discouraged for security reasons.
+// Authentication tokens (like JWTs) should ideally be obtained after user login 
+// and stored securely (e.g., localStorage or sessionStorage).
+// If a master API token is needed for certain operations, those should typically
+// be handled by a backend proxy/service you control, not directly by the frontend.
+export const API_TOKEN = import.meta.env.VITE_API_TOKEN || 'default_fallback_token';

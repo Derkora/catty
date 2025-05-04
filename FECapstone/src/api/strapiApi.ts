@@ -1,21 +1,20 @@
 import axios from 'axios';
-
-// Base URL dari API Strapi
-const API_URL = 'http://localhost:3000/api'; // Changed port to 3000
-const STRAPI_URL = 'http://localhost:3000'; // Changed port to 3000
+import { API_BASE_URL } from '../config'; // Import the base URL from config
 
 // Fungsi untuk mendapatkan url lengkap dari gambar Strapi
 export const getStrapiMedia = (url: string | null | undefined): string => {
   if (!url) return '';
-  if (url.startsWith('http') || url.startsWith('https')) {
+  // If the URL is absolute, return it directly
+  if (url.startsWith('http') || url.startsWith('//')) {
     return url;
   }
-  return `${STRAPI_URL}${url}`;
+  // Otherwise, prepend the API base URL
+  return `${API_BASE_URL}${url}`;
 };
 
 // Instance axios dengan konfigurasi dasar
-const api = axios.create({
-  baseURL: API_URL,
+export const api = axios.create({
+  baseURL: `${API_BASE_URL}/api`, // Use the imported base URL
   headers: {
     'Content-Type': 'application/json',
   },
@@ -207,5 +206,3 @@ export const loginUser = async (
     return null;
   }
 };
-
-export default api;

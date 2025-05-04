@@ -33,7 +33,8 @@ import Footer from '../components/layout/Footer';
 import axios from 'axios';
 import { Badge } from '../components/ui/badge';
 import { Link } from 'react-router-dom';
-import { API_TOKEN, API_BASE_URL } from '../config';
+import { API_TOKEN, API_BASE_URL, FLASK_API_BASE_URL } from '../config'; // Import Flask URL
+import { api } from '../api/strapiApi';
 
 interface Document {
   id: number;
@@ -93,7 +94,7 @@ const AdminDashboard: React.FC = () => {
   const [filteredDocuments, setFilteredDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('documents');
-  const [formData, setFormData] = useState({
+  const [documentForm, setDocumentForm] = useState({
     namaDokumen: '',
     jenisDokumen: 'Dokumen_Administrasi',
   });
@@ -103,9 +104,11 @@ const AdminDashboard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
+  const [useConvertit, setUseConvertit] = useState(true); // State for the mode switch
 
   useEffect(() => {
     fetchDocuments();
+    fetchMode(); // Fetch initial mode on mount
   }, [refreshKey]);
 
   useEffect(() => {
@@ -160,11 +163,11 @@ const AdminDashboard: React.FC = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setDocumentForm(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSelectChange = (value: string) => {
-    setFormData(prev => ({ ...prev, jenisDokumen: value }));
+    setDocumentForm(prev => ({ ...prev, jenisDokumen: value }));
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -179,57 +182,38 @@ const AdminDashboard: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      console.log('Starting document upload process...');
-      
-      // First, upload the files
-      const formDataFiles = new FormData();
+      if (files.length === 0) {
+        alert('Pilih file terlebih dahulu!');
+        return;
+      }
+
+      const formData = new FormData();
       files.forEach(file => {
-        formDataFiles.append('files', file);
+        formData.append('file', file);
       });
+      formData.append('useConvertit', useConvertit.toString());
+      formData.append('jenisDokumen', documentForm.jenisDokumen);
+      formData.append('namaDokumen', documentForm.namaDokumen);
 
-      console.log('Uploading files...');
-      const uploadResponse = await axios.post(
-        `${API_BASE_URL}/api/upload`, 
-        formDataFiles,
+      const response = await axios.post(
+        `${FLASK_API_BASE_URL}/convert`,
+        formData,
         {
           headers: {
-            Authorization: `Bearer ${API_TOKEN}`,
-            'Content-Type': 'multipart/form-data',
+            'Content-Type': 'multipart/form-data'
           }
         }
       );
-      console.log('File upload response:', uploadResponse);
-      
-      const fileIds = uploadResponse.data.map((file: any) => file.id);
-      console.log('File IDs obtained:', fileIds);
 
-      // Then create the document with references to the uploaded files
-      console.log('Creating document with data:', { ...formData, fileDokumen: fileIds });
-      const createResponse = await axios.post(
-        `${API_BASE_URL}/api/dokumens`, 
-        {
-          data: {
-            ...formData,
-            fileDokumen: fileIds
-          }
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${API_TOKEN}`,
-          }
-        }
-      );
-      console.log('Document creation response:', createResponse);
-
-      // Reset form and refresh documents
-      setFormData({ namaDokumen: '', jenisDokumen: 'Dokumen_Administrasi' });
-      setFiles([]);
-      setRefreshKey(prev => prev + 1);
-      
-      alert('Dokumen berhasil diunggah!');
+      if (response.data.message) {
+        alert(response.data.message);
+        setDocumentForm({ namaDokumen: '', jenisDokumen: 'Dokumen_Administrasi' });
+        setFiles([]);
+        setRefreshKey(prev => prev + 1);
+      }
     } catch (error) {
-      console.error('Error submitting document:', error);
-      alert('Gagal mengunggah dokumen. Silakan periksa konsol untuk detail.');
+      console.error('Error uploading file:', error);
+      alert('Gagal mengunggah file. Silakan coba lagi.');
     } finally {
       setIsSubmitting(false);
     }
@@ -273,6 +257,33 @@ const AdminDashboard: React.FC = () => {
     link.click();
     document.body.removeChild(link);
   };
+
+  // Fetch the current mode from the Flask backend
+  const fetchMode = async () => {
+    try {
+      const response = await axios.get(`${FLASK_API_BASE_URL}/get-mode`);
+      setUseConvertit(response.data.useConvertit);
+    } catch (error) {
+      console.error('Error fetching mode:', error);
+      // Handle error, maybe set a default or show a message
+    }
+  };
+
+  // Handle mode switch toggle
+  const handleModeChange = async (checked: boolean) => {
+    const newMode = checked; // checked means useConvertit is true
+    setUseConvertit(newMode);
+    try {
+      await axios.post(`${FLASK_API_BASE_URL}/set-mode`, { useConvertit: newMode });
+      console.log('Mode updated successfully:', newMode);
+    } catch (error) {
+      console.error('Error updating mode:', error);
+      // Revert the switch if the update fails
+      setUseConvertit(!newMode);
+      // Show an error message to the user
+    }
+  };
+
 
   if (loading && documents.length === 0) {
     return (
@@ -342,6 +353,24 @@ const AdminDashboard: React.FC = () => {
               Pengaturan
             </h3>
             <div className="mt-2 -mx-3">
+              {/* Mode Switch */}
+              <div className="flex items-center justify-between px-3 py-2 rounded-md hover:bg-slate-100 transition-colors">
+                <div className="flex items-center">
+                  <Settings className="h-4 w-4 mr-3 text-slate-600" />
+                  <span className="text-sm font-medium text-slate-700">Mode Convertit</span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    value="" 
+                    className="sr-only peer" 
+                    checked={useConvertit}
+                    onChange={(e) => handleModeChange(e.target.checked)}
+                  />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+              
               <Button 
                 variant="ghost" 
                 className="w-full justify-start text-sm font-medium mb-1"
@@ -685,7 +714,7 @@ const AdminDashboard: React.FC = () => {
                           id="namaDokumen"
                           name="namaDokumen"
                           placeholder="Masukkan nama dokumen"
-                          value={formData.namaDokumen}
+                          value={documentForm.namaDokumen}
                           onChange={handleInputChange}
                           className="border-slate-300 focus:border-blue-500"
                           required
@@ -694,7 +723,7 @@ const AdminDashboard: React.FC = () => {
                       <div className="space-y-2">
                         <Label htmlFor="jenisDokumen" className="text-sm font-medium">Jenis Dokumen</Label>
                         <Select 
-                          value={formData.jenisDokumen} 
+                          value={documentForm.jenisDokumen} 
                           onValueChange={handleSelectChange}
                         >
                           <SelectTrigger id="jenisDokumen" className="border-slate-300 focus:border-blue-500">
@@ -829,4 +858,4 @@ const AdminDashboard: React.FC = () => {
   );
 };
 
-export default AdminDashboard; 
+export default AdminDashboard;

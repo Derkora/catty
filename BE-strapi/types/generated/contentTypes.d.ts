@@ -384,12 +384,10 @@ export interface ApiDokumenDokumen extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    extractedDokumen: Schema.Attribute.RichText;
     fileDokumen: Schema.Attribute.Media<
       'images' | 'files' | 'videos' | 'audios',
       true
     >;
-    isProcessed: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     jenisDokumen: Schema.Attribute.Enumeration<
       ['Dokumen_MataKuliah', 'Dokumen_Administrasi']
     >;

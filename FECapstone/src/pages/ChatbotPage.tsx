@@ -7,6 +7,7 @@ import { Badge } from '../components/ui/badge';
 import { Toaster } from '../components/ui/toaster';
 import { useToast } from '../lib/hooks/use-toast';
 import { Bot, User, Send, Brain, Zap, Sparkles, Wand2, LucideIcon, X, Maximize, Minimize, Copy, RefreshCw, Check, HelpCircle, InfoIcon, CheckCircle } from 'lucide-react';
+import { FLASK_API_BASE_URL } from '../config'; // Import Flask URL
 
 // Custom styles for animations
 const customStyles = `
@@ -666,8 +667,8 @@ const ChatbotPage: React.FC = () => {
     }
     
     try {
-      // Using proxied endpoint to avoid CORS issues
-      const response = await fetch('/api/chat', {
+      // Call the Flask backend endpoint
+      const response = await fetch(`${FLASK_API_BASE_URL}/chat`, { 
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

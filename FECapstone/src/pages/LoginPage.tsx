@@ -48,7 +48,6 @@ const LoginPage: React.FC = () => {
         console.log("Authenticated user details:", userDetails); // Log the user details from /users/me
 
         if (userDetails) {
-          // Simpan user object lengkap (termasuk role) ke localStorage
           localStorage.setItem('user', JSON.stringify(userDetails)); 
           
           toast({
@@ -57,10 +56,7 @@ const LoginPage: React.FC = () => {
             description: "Selamat datang di dashboard mahasiswa",
           });
           
-          // Redirect ke dashboard
           setTimeout(() => {
-            // Determine redirect based on role if needed, or default to dashboard
-            // For now, redirect to dashboard as per original logic
             navigate('/dashboard'); 
           }, 1000);
         } else {

@@ -52,14 +52,14 @@ const NewsDetailDialog: React.FC<NewsDetailDialogProps> = ({
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className={cn("", className)}>
+        <Button variant="outline" size="sm" className={cn("", className)} aria-label={`View details for ${title}`}>
           Lihat Detail
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto" aria-label={`Details for ${title}`}>
         <DialogHeader className="mb-2">
-          <DialogTitle className="text-2xl">{title}</DialogTitle>
-          <DialogDescription className="flex flex-wrap gap-2 items-center text-sm mt-2">
+          <DialogTitle className="text-2xl" id="dialog-title">{title}</DialogTitle>
+          <DialogDescription className="flex flex-wrap gap-2 items-center text-sm mt-2" id="dialog-description">
             <span>{date}</span>
             {author && (
               <>
