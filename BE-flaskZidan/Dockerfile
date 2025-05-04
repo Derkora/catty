@@ -11,21 +11,23 @@ RUN apt-get update && \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application files
-COPY app.py .
-COPY chatit.py .
-COPY convertit.py .
-COPY templates/ ./templates/
-
-# Create data directories
+# Create directories
 RUN mkdir -p \
     markdown/mahasiswa \
     markdown/umum \
     original \
     mahasiswachroma \
-    umumchroma
+    umumchroma \
+    logs
+
+# Copy application files (development files will be overridden by volume mount)
+COPY app.py .
+COPY chatit.py .
+COPY convertit.py .
+COPY templates/ ./templates/
 
 ENV PORT=5000
 EXPOSE 5000
 
-CMD ["python", "app.py"]
+# For production use Waitress, for development use Flask's server
+CMD ["sh", "-c", "if [ \"$ENVIRONMENT\" = \"development\" ]; then flask run --host=0.0.0.0 --port=$PORT; else python app.py; fi"]
