@@ -18,7 +18,10 @@ import chromadb
 
 from typing import List, Tuple
 
-app = Flask(__name__)
+from flask import Blueprint, jsonify, request, current_app
+# ... keep other imports ...
+
+chat_bp = Blueprint('chat', __name__)
 
 # Configuration constants
 DATA_PATH = "./markdown"
@@ -241,7 +244,7 @@ def natural_join(items: list[str], lang: str) -> str:
     else:
         return ", ".join(items[:-1]) + f",{conjunction} {items[-1]}"
 
-@app.route('/api/health', methods=['GET'])
+@chat_bp.route('/api/health', methods=['GET'])
 def health_check():
     try:
         health_info = {
@@ -265,12 +268,12 @@ def health_check():
         return jsonify({"status": "unhealthy", "error": str(e)}), 500
     
 
-@app.route('/api/query', methods=['POST'])
+@chat_bp.route('/api/query', methods=['POST'])
 def query_rag_backward_compatible():
     return query_rag()
 
 
-@app.route('/chat', methods=['POST'])  # Changed from /api/query
+@chat_bp.route('/chat', methods=['POST'])  # Changed from /api/query
 def query_rag():
     response_template = {
         "result": None,
@@ -404,7 +407,7 @@ def query_rag():
         response_template['error'] = str(e)
         return jsonify(response_template), 500
 
-@app.route('/api/rebuild', methods=['POST'])
+@chat_bp.route('/api/rebuild', methods=['POST'])
 def rebuildrag():
     try:
         for category in CHROMA_PATHS.values():
@@ -427,7 +430,7 @@ def rebuildrag():
 
 from flask import send_from_directory
 
-@app.route('/')
+@chat_bp.route('/')
 def serve_index():
     return send_from_directory('templates', 'index.html')
 
@@ -435,7 +438,7 @@ if __name__ == '__main__':
     try:
         initialize_embedding_model()
         initialize_rag_system()
-        app.run(host='0.0.0.0', port=5003, debug=False)
+        chat_bp.run(host='0.0.0.0', port=5003, debug=False)
     except Exception as e:
         print(f"Failed to initialize system: {str(e)}")
         exit(1)

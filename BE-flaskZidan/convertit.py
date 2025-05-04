@@ -10,11 +10,14 @@ from marker.config.parser import ConfigParser
 import torch
 import requests
 
-app = Flask(__name__)
+from flask import Blueprint, request, current_app
+# ... keep other imports ...
+
+convert_bp = Blueprint('convert', __name__)
 
 task_queue = queue.Queue()
 
-REBUILD_URL = "http://localhost:5003/api/rebuild"
+REBUILD_URL = "http://localhost:5000/api/rebuild"
 
 # Define allowed groups
 ALLOWED_GROUPS = {'mahasiswa', 'umum'}
@@ -92,8 +95,17 @@ def process_queue():
                 except Exception as e:
                     print(f"Failed to send rebuild signal: {e}")
 
-@app.route('/convert', methods=['POST'])
+@convert_bp.route('/convert', methods=['POST'])
 def upload_file():
+    
+    # Map document types to groups
+    group_mapping = {
+        'Dokumen_MataKuliah': 'mahasiswa',
+        'Dokumen_Administrasi': 'umum'
+    }
+
+    original_dir = 'original'
+
     # Add namaDokumen handling
     nama_dokumen = request.form.get('namaDokumen')
     if not nama_dokumen:
@@ -104,22 +116,14 @@ def upload_file():
     original_filename = f"{nama_dokumen}.pdf"  # Preserve PDF extension
     original_path = os.path.join(original_dir, original_filename)
     
-    file = request.files['file']
     jenis = request.form.get('jenisDokumen')  # Changed from 'group'
-    
-    # Map document types to groups
-    group_mapping = {
-        'Dokumen_MataKuliah': 'mahasiswa',
-        'Dokumen_Administrasi': 'umum'
-    }
-    
+
+    group = group_mapping[jenis]
+
     if not jenis or jenis not in group_mapping:
         return 'Invalid document type', 400
-        
-    group = group_mapping[jenis]
     
     if file.filename.lower().endswith('.pdf'):
-        original_dir = 'original'
         create_directory(original_dir)
         original_path = os.path.join(original_dir, file.filename)
         file.save(original_path)
@@ -135,4 +139,4 @@ if __name__ == '__main__':
         create_directory(os.path.join("markdown", group))
     worker_thread = threading.Thread(target=process_queue, daemon=True)
     worker_thread.start()
-    app.run(host='0.0.0.0', port=5000)
+    convert_bp.run(host='0.0.0.0', port=5000)
