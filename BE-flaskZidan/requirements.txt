@@ -1,6 +1,7 @@
 waitress
 requests
 flask
+Flask-CORS
 langchain
 langchain-community
 langchain-chroma

@@ -34,7 +34,6 @@ import axios from 'axios';
 import { Badge } from '../components/ui/badge';
 import { Link } from 'react-router-dom';
 import { API_TOKEN, API_BASE_URL, FLASK_API_BASE_URL } from '../config'; // Import Flask URL
-import { api } from '../api/strapiApi';
 
 interface Document {
   id: number;
@@ -89,6 +88,19 @@ interface Document {
   }>;
 }
 
+interface History {
+  id: number;
+  attributes: {
+    message: string;
+    response: string;
+    userType: 'public' | 'mahasiswa';
+    sessionId: string;
+    responseTime: number;
+    publishedAt: string;
+    timestamp: string;
+  };
+}
+
 const AdminDashboard: React.FC = () => {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [filteredDocuments, setFilteredDocuments] = useState<Document[]>([]);
@@ -104,11 +116,13 @@ const AdminDashboard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
-  const [useConvertit, setUseConvertit] = useState(true); // State for the mode switch
+  const [histories, setHistories] = useState<History[]>([]);
+  const [historyFilter, setHistoryFilter] = useState('all'); // 'all', 'public', 'mahasiswa'
+  const [historySort, setHistorySort] = useState('newest'); // 'newest', 'oldest'
 
   useEffect(() => {
     fetchDocuments();
-    fetchMode(); // Fetch initial mode on mount
+    fetchHistories();
   }, [refreshKey]);
 
   useEffect(() => {
@@ -139,9 +153,10 @@ const AdminDashboard: React.FC = () => {
     setLoading(true);
     try {
       console.log('Attempting to fetch documents from Strapi...');
+      const token = localStorage.getItem('token');
       const response = await axios.get(`${API_BASE_URL}/api/dokumens?populate=*`, {
         headers: {
-          Authorization: `Bearer ${API_TOKEN}`,
+          Authorization: `Bearer ${token}`,
         }
       });
       console.log('Strapi response:', response);
@@ -158,6 +173,31 @@ const AdminDashboard: React.FC = () => {
       setDocuments([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchHistories = async () => {
+    try {
+      console.log('Attempting to fetch histories from Strapi...');
+      const token = localStorage.getItem('token');
+      console.log('Using token:', token);
+      const response = await axios.get<{ data: History[] }>(`${API_BASE_URL}/api/histories?populate=*`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        }
+      });
+      console.log('Histories response:', response);
+      console.log('Histories data:', response.data);
+      setHistories(response.data.data);
+    } catch (error) {
+      console.error('Error fetching histories:', error);
+      if (axios.isAxiosError(error)) {
+        console.error('Error details:', {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data
+        });
+      }
     }
   };
 
@@ -191,7 +231,6 @@ const AdminDashboard: React.FC = () => {
       files.forEach(file => {
         formData.append('file', file);
       });
-      formData.append('useConvertit', useConvertit.toString());
       formData.append('jenisDokumen', documentForm.jenisDokumen);
       formData.append('namaDokumen', documentForm.namaDokumen);
 
@@ -258,32 +297,14 @@ const AdminDashboard: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  // Fetch the current mode from the Flask backend
-  const fetchMode = async () => {
-    try {
-      const response = await axios.get(`${FLASK_API_BASE_URL}/get-mode`);
-      setUseConvertit(response.data.useConvertit);
-    } catch (error) {
-      console.error('Error fetching mode:', error);
-      // Handle error, maybe set a default or show a message
-    }
-  };
-
-  // Handle mode switch toggle
-  const handleModeChange = async (checked: boolean) => {
-    const newMode = checked; // checked means useConvertit is true
-    setUseConvertit(newMode);
-    try {
-      await axios.post(`${FLASK_API_BASE_URL}/set-mode`, { useConvertit: newMode });
-      console.log('Mode updated successfully:', newMode);
-    } catch (error) {
-      console.error('Error updating mode:', error);
-      // Revert the switch if the update fails
-      setUseConvertit(!newMode);
-      // Show an error message to the user
-    }
-  };
-
+  const filteredHistories = histories.filter(history => {
+    if (historyFilter === 'all') return true;
+    return history.attributes.userType === historyFilter;
+  }).sort((a, b) => {
+    const dateA = new Date(a.attributes.timestamp).getTime();
+    const dateB = new Date(b.attributes.timestamp).getTime();
+    return historySort === 'newest' ? dateB - dateA : dateA - dateB;
+  });
 
   if (loading && documents.length === 0) {
     return (
@@ -353,23 +374,6 @@ const AdminDashboard: React.FC = () => {
               Pengaturan
             </h3>
             <div className="mt-2 -mx-3">
-              {/* Mode Switch */}
-              <div className="flex items-center justify-between px-3 py-2 rounded-md hover:bg-slate-100 transition-colors">
-                <div className="flex items-center">
-                  <Settings className="h-4 w-4 mr-3 text-slate-600" />
-                  <span className="text-sm font-medium text-slate-700">Mode Convertit</span>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    value="" 
-                    className="sr-only peer" 
-                    checked={useConvertit}
-                    onChange={(e) => handleModeChange(e.target.checked)}
-                  />
-                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
               
               <Button 
                 variant="ghost" 
@@ -484,6 +488,10 @@ const AdminDashboard: React.FC = () => {
                 <TabsTrigger value="users" className="rounded-md py-2 px-3">
                   <Users className="h-4 w-4 mr-2" />
                   Pengguna
+                </TabsTrigger>
+                <TabsTrigger value="history" className="rounded-md py-2 px-3">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Chat History
                 </TabsTrigger>
               </TabsList>
 
@@ -845,6 +853,56 @@ const AdminDashboard: React.FC = () => {
                       <Users className="h-12 w-12 mx-auto text-slate-300" />
                       <p className="mt-2 text-slate-600">Fitur pengelolaan pengguna sedang dalam pengembangan</p>
                     </div>
+                  </div>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="history">
+                <Card className="p-6 border border-slate-200">
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold text-slate-800">Chat History</h2>
+                    <div className="flex gap-4">
+                      <Select value={historyFilter} onValueChange={setHistoryFilter}>
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Filter by user type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Users</SelectItem>
+                          <SelectItem value="public">Public Users</SelectItem>
+                          <SelectItem value="mahasiswa">Mahasiswa</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Select value={historySort} onValueChange={setHistorySort}>
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Sort by" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="newest">Newest First</SelectItem>
+                          <SelectItem value="oldest">Oldest First</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    {filteredHistories.map(history => (
+                      <div key={history.id} className="border rounded-lg p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="text-sm text-slate-500">
+                            {new Date(history.attributes.timestamp).toLocaleString()}
+                          </span>
+                          <Badge variant={history.attributes.userType === 'mahasiswa' ? 'default' : 'outline'}>
+                            {history.attributes.userType}
+                          </Badge>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="font-medium">User: {history.attributes.message}</p>
+                          <p className="text-slate-600">Bot: {history.attributes.response}</p>
+                          <p className="text-xs text-slate-500">
+                            Response time: {history.attributes.responseTime}ms
+                          </p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </Card>
               </TabsContent>

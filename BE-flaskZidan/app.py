@@ -3,6 +3,7 @@ import threading
 import logging
 from waitress import serve
 from flask import Flask, send_from_directory, request
+from flask_cors import CORS
 
 # Configure root logger
 logging.basicConfig(
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 # Main app instance
 app = Flask(__name__)
+CORS(app) # Enable CORS for all routes
 
 # Configuration
 PORT = int(os.environ.get("PORT", 5000))

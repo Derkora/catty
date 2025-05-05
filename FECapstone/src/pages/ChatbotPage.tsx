@@ -467,6 +467,35 @@ const copyToClipboard = (text: string) => {
   });
 };
 
+const saveChatHistory = async (message: string, response: string, userType: 'public' | 'mahasiswa', sessionId: string, responseTime: number) => {
+  try {
+    const token = localStorage.getItem('token');
+    const historyResponse = await fetch(`${FLASK_API_BASE_URL}/api/histories`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        data: {
+          message,
+          response,
+          userType,
+          sessionId,
+          responseTime,
+          timestamp: new Date().toISOString()
+        }
+      })
+    });
+
+    if (!historyResponse.ok) {
+      throw new Error(`Failed to save history: ${historyResponse.status} ${historyResponse.statusText}`);
+    }
+  } catch (error) {
+    console.error('Error saving chat history:', error);
+  }
+};
+
 const ChatbotPage: React.FC = () => {
   const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -699,7 +728,7 @@ const ChatbotPage: React.FC = () => {
           sender: 'bot',
           text: data.reply.replace(/<think>[\s\S]*?<\/think>/g, ''), // Remove thinking process
           timestamp: new Date(),
-          responseTime: responseTime, // Tambahkan waktu respons
+          responseTime: responseTime,
         };
         
         const finalMessages = [...updatedMessages, botResponse];
@@ -718,6 +747,15 @@ const ChatbotPage: React.FC = () => {
             return session;
           }));
         }
+
+        // Save chat history
+        saveChatHistory(
+          inputMessage,
+          botResponse.text,
+          isAuthenticated && user?.role?.name === 'Mahasiswa IT' ? 'mahasiswa' : 'public',
+          activeChatId || Date.now().toString(),
+          responseTime
+        );
       }, 700); // Add a small delay for natural feel
       
     } catch (error) {

@@ -1,0 +1,49 @@
+{
+  "kind": "collectionType",
+  "collectionName": "histories",
+  "info": {
+    "singularName": "history",
+    "pluralName": "histories",
+    "displayName": "History",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "attributes": {
+    "users_permissions_user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "histories"
+    },
+    "message": {
+      "type": "text",
+      "required": true
+    },
+    "response": {
+      "type": "text",
+      "required": true
+    },
+    "userType": {
+      "type": "enumeration",
+      "enum": [
+        "public",
+        "mahasiswa"
+      ],
+      "required": true
+    },
+    "sessionId": {
+      "type": "string",
+      "required": true
+    },
+    "responseTime": {
+      "type": "integer",
+      "required": true
+    },
+    "timestamp": {
+      "type": "datetime",
+      "required": true
+    }
+  }
+}
