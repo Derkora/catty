@@ -1,45 +1,51 @@
-from flask import Flask, request
+import logging
 import os
+from flask import request
 from PyPDF2 import PdfReader
 import queue
 import threading
+import torch
+import requests
 from marker.converters.pdf import PdfConverter
 from marker.models import create_model_dict
 from marker.output import text_from_rendered
 from marker.config.parser import ConfigParser
-import torch
-import requests
+from flask import Blueprint, current_app
 
-app = Flask(__name__)
-
+logger = logging.getLogger(__name__)
+convert_bp = Blueprint('convert', __name__)
 task_queue = queue.Queue()
-
-REBUILD_URL = "http://localhost:5003/api/rebuild"
-
-# Define allowed groups
 ALLOWED_GROUPS = {'mahasiswa', 'umum'}
+REBUILD_URL = os.environ.get("REBUILD_URL", "http://localhost:5000/api/rebuild")
 
 def create_directory(directory):
     if not os.path.exists(directory):
         os.makedirs(directory)
+        logger.info(f"Created directory: {directory}")
 
 def get_total_pages(pdf_path):
-    with open(pdf_path, 'rb') as f:
-        pdf = PdfReader(f)
-        return len(pdf.pages)
+    try:
+        with open(pdf_path, 'rb') as f:
+            pdf = PdfReader(f)
+            return len(pdf.pages)
+    except Exception as e:
+        logger.error(f"Error reading PDF: {pdf_path}", exc_info=True)
+        raise
 
 def process_pdf(pdf_path, group, model_dict):
-    print(f"Processing: {pdf_path} in group {group}")
+    logger.info(f"Processing: {pdf_path} in group {group}")
     pdf_name = os.path.splitext(os.path.basename(pdf_path))[0]
     output_dir = os.path.join("markdown", group, pdf_name)
     create_directory(output_dir)
-    
+
     try:
         total_pages = get_total_pages(pdf_path)
-        
+        logger.info(f"Total pages: {total_pages} in {pdf_path}")
+
         for start_page in range(0, total_pages, 5):
             end_page = min(start_page + 4, total_pages - 1)
-            
+            logger.debug(f"Processing pages {start_page}-{end_page}")
+
             config = {
                 "output_format": "markdown",
                 "disable_image_extraction": "true",
@@ -48,7 +54,6 @@ def process_pdf(pdf_path, group, model_dict):
             }
             
             config_parser = ConfigParser(config)
-            
             converter = PdfConverter(
                 artifact_dict=model_dict,
                 config=config_parser.generate_config_dict(),
@@ -68,59 +73,76 @@ def process_pdf(pdf_path, group, model_dict):
             del rendered, converter
             torch.cuda.empty_cache()
 
-        print(f"\nConversion complete. Files saved in: {output_dir}")
+        logger.info(f"Conversion complete. Files saved in: {output_dir}")
     
     except Exception as e:
-        print(f"Error: {e}")
+        logger.error(f"Processing error: {pdf_path}", exc_info=True)
+        raise
 
 def process_queue():
+    logger.info("Starting processing queue")
     model_dict = create_model_dict()
     while True:
         item = task_queue.get()
         pdf_path, group = item
         try:
+            logger.info(f"Processing queue item: {pdf_path}")
             process_pdf(pdf_path, group, model_dict)
         except Exception as e:
-            print(f"Error processing {pdf_path}: {e}")
+            logger.error(f"Queue processing error: {pdf_path}", exc_info=True)
         finally:
             task_queue.task_done()
-            # Check if queue is empty after processing
             if task_queue.empty():
                 try:
-                    print("All tasks completed. Sending rebuild signal.")
+                    logger.info("All tasks completed. Sending rebuild signal")
                     requests.post(REBUILD_URL)
                 except Exception as e:
-                    print(f"Failed to send rebuild signal: {e}")
+                    logger.error(f"Rebuild signal failed: {e}", exc_info=True)
 
-@app.route('/upload', methods=['POST'])
+@convert_bp.route('/convert', methods=['POST'])
 def upload_file():
-    if 'file' not in request.files:
-        return 'No file', 400
-    file = request.files['file']
-    group = request.form.get('group')
-    
-    if not group:
-        return 'No group specified', 400
-    if group not in ALLOWED_GROUPS:
-        return 'Invalid group', 400
-    if file.filename == '':
-        return 'No file', 400
-    
-    if file.filename.lower().endswith('.pdf'):
+    try:
+        group_mapping = {
+            'Dokumen_MataKuliah': 'mahasiswa',
+            'Dokumen_Administrasi': 'umum'
+        }
         original_dir = 'original'
-        create_directory(original_dir)
-        original_path = os.path.join(original_dir, file.filename)
-        file.save(original_path)
-        task_queue.put((original_path, group))
-        return '', 204
-    return 'Invalid file', 400
+
+        nama_dokumen = request.form.get('namaDokumen')
+        if not nama_dokumen:
+            logger.error("Missing document name")
+            return 'Document name required', 400
+
+        file = request.files['file']
+        original_filename = f"{nama_dokumen}.pdf"
+        original_path = os.path.join(original_dir, original_filename)
+        jenis = request.form.get('jenisDokumen')
+
+        if not jenis or jenis not in group_mapping:
+            logger.error(f"Invalid document type: {jenis}")
+            return 'Invalid document type', 400
+
+        group = group_mapping[jenis]
+
+        if file.filename.lower().endswith('.pdf'):
+            create_directory(original_dir)
+            file.save(original_path)
+            logger.info(f"File saved: {original_path}")
+            task_queue.put((original_path, group))
+            return '', 204
+        
+        logger.error("Invalid file format")
+        return 'Invalid file', 400
+
+    except Exception as e:
+        logger.error("Upload error", exc_info=True)
+        return f"Server error: {e}", 500
 
 if __name__ == '__main__':
     create_directory('original')
     create_directory('markdown')
-    # Pre-create group directories (optional, handled by process_pdf)
     for group in ALLOWED_GROUPS:
         create_directory(os.path.join("markdown", group))
     worker_thread = threading.Thread(target=process_queue, daemon=True)
     worker_thread.start()
-    app.run(host='0.0.0.0', port=5000)
+    convert_bp.run(host='0.0.0.0', port=5000)

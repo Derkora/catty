@@ -1,4 +1,10 @@
-from flask import Flask, request, jsonify
+import logging
+import os
+import shutil
+import gc
+import torch
+import sqlite3
+from flask import jsonify, request, Blueprint
 from langchain_community.document_loaders import DirectoryLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
@@ -8,17 +14,12 @@ from langchain_community.llms import Ollama
 from langdetect import detect
 from langchain.schema import BaseRetriever, Document
 from typing import List
-import os
-import shutil
-import gc
-import torch
-import sqlite3
-
 import chromadb
 
-from typing import List, Tuple
+logger = logging.getLogger(__name__)
+# ... keep other imports ...
 
-app = Flask(__name__)
+chat_bp = Blueprint('chat', __name__)
 
 # Configuration constants
 DATA_PATH = "./markdown"
@@ -72,7 +73,7 @@ model_norm = HuggingFaceBgeEmbeddings(
 )
 
 # LLM initialization
-llm = Ollama(model="qwen2.5:7b-instruct")
+llm = Ollama(model="qwen2.5:7b-instruct", base_url="http://ollama:11434")
 
 # Global variables for persistence
 vectordbs = {
@@ -88,11 +89,18 @@ qa_chains = {
 def initialize_embedding_model():
     global model_norm
     if model_norm is None:
-        model_norm = HuggingFaceBgeEmbeddings(
-            model_name=model_name,
-            model_kwargs={'device': 'cuda'},
-            encode_kwargs=encode_kwargs
-        )
+        try:
+            logger.info("Initializing embedding model")
+            model_norm = HuggingFaceBgeEmbeddings(
+                model_name=model_name,
+                model_kwargs={'device': 'cuda'},
+                encode_kwargs=encode_kwargs
+            )
+        except Exception as e:
+            logger.error("Embedding model initialization failed", exc_info=True)
+            raise
+
+
 
 def check_chroma_db(chroma_path):
     """Check if Chroma DB is properly initialized"""
@@ -151,27 +159,24 @@ def load_documents_for_category(category):
 
 def initialize_category_rag(category):
     global vectordbs, qa_chains
-    
     chroma_path = CHROMA_PATHS[category]
     
-    if os.path.exists(chroma_path):
-        try:
-            # Try to load existing database
-            vectordb = Chroma(
-                persist_directory=chroma_path,
-                embedding_function=model_norm,
-            )
-            if vectordb._collection.count() > 0:
-                vectordbs[category] = vectordb
-                print(f"Loaded existing ChromaDB for {category}")
-                return
-        except Exception as e:
-            print(f"Failed to load existing ChromaDB for {category}: {str(e)}")
-            shutil.rmtree(chroma_path)
-
-    # Create new database
-    print(f"Building new vector database for {category}")
     try:
+        if os.path.exists(chroma_path):
+            try:
+                vectordb = Chroma(
+                    persist_directory=chroma_path,
+                    embedding_function=model_norm,
+                )
+                if vectordb._collection.count() > 0:
+                    vectordbs[category] = vectordb
+                    logger.info(f"Loaded ChromaDB for {category}")
+                    return
+            except Exception as e:
+                logger.error(f"ChromaDB load failed for {category}", exc_info=True)
+                shutil.rmtree(chroma_path)
+
+        logger.info(f"Building new ChromaDB for {category}")
         documents = load_documents_for_category(category)
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
@@ -186,29 +191,32 @@ def initialize_category_rag(category):
             persist_directory=chroma_path
         )
         vectordbs[category] = vectordb
-        print(f"Created new DB for {category} with {len(chunks)} chunks")
+        logger.info(f"Created ChromaDB for {category} with {len(chunks)} chunks")
+
     except Exception as e:
-        raise RuntimeError(f"DB initialization failed for {category}: {str(e)}")
+        logger.error(f"RAG init failed for {category}", exc_info=True)
+        raise
+
 
 def initialize_rag_system():
+    logger.info("Initializing RAG system")
     for category in ['mahasiswa', 'umum']:
         try:
             if os.path.exists(os.path.join(DATA_PATH, category)):
                 initialize_category_rag(category)
-                # Create QA chain with custom retriever and prompt
                 retriever = CustomChromaRetriever(vectorstore=vectordbs[category], k=3)
                 qa_chains[category] = RetrievalQA.from_chain_type(
                     llm=llm,
                     chain_type="stuff",
                     retriever=retriever,
                     return_source_documents=True,
-                    chain_type_kwargs={"prompt": PROMPT}  # Added custom prompt
+                    chain_type_kwargs={"prompt": PROMPT}
                 )
-                print(f"RAG system initialized successfully for {category}")
+                logger.info(f"RAG initialized for {category}")
             else:
-                print(f"Skipping {category} - directory not found")
+                logger.warning(f"Skipping {category} - directory missing")
         except Exception as e:
-            print(f"Failed to initialize {category}: {str(e)}")
+            logger.error(f"RAG init failed for {category}", exc_info=True)
 
 
 def format_source_documents(source_documents):
@@ -241,7 +249,7 @@ def natural_join(items: list[str], lang: str) -> str:
     else:
         return ", ".join(items[:-1]) + f",{conjunction} {items[-1]}"
 
-@app.route('/api/health', methods=['GET'])
+@chat_bp.route('/api/health', methods=['GET'])
 def health_check():
     try:
         health_info = {
@@ -249,7 +257,7 @@ def health_check():
             "categories": {}
         }
         
-        for category in ['akademik', 'administrasi', 'umum']:
+        for category in ['mahasiswa', 'umum']:
             chroma_path = CHROMA_PATHS[category]
             db_status, db_msg = check_chroma_db(chroma_path)
             
@@ -265,10 +273,14 @@ def health_check():
         return jsonify({"status": "unhealthy", "error": str(e)}), 500
     
 
-@app.route('/api/query', methods=['POST'])
+@chat_bp.route('/api/query', methods=['POST'])
+def query_rag_backward_compatible():
+    return query_rag()
+
+@chat_bp.route('/chat', methods=['POST'])
 def query_rag():
     response_template = {
-        "result": None,
+        "reply": None,
         "sources": [],
         "context_quality": "unknown",
         "confidence_score": 0.0,
@@ -279,11 +291,12 @@ def query_rag():
     
     try:
         data = request.json
-        if not data or 'query' not in data:
+        if not data or 'message' not in data:
             raise ValueError("Query parameter is required")
             
-        query = data['query']
-        category = data.get('category', 'akademik')
+        query = data['message']
+        logger.info(f"Incoming query: {query[:100]}...")  # Moved after validation
+        category = data.get('category', 'mahasiswa')
 
         if category not in qa_chains or not qa_chains[category]:
             raise ValueError(f"Invalid category or uninitialized: {category}")
@@ -390,24 +403,30 @@ def query_rag():
                     response_text = msg
                     break
 
-        response_template['result'] = f"{response_text}{reminder}".strip()
+        response_template['reply'] = f"{response_text}{reminder}".strip()
         response_template['sources'] = valid_sources
         response_template["sorry?"] = response_is_sorry
+
+        logger.debug(f"Detected language: {detected_lang}")
+        logger.info(f"Found {len(valid_sources)} valid sources")
+        logger.debug(f"Confidence score: {response_template['confidence_score']}")
         
         return jsonify(response_template)
     except Exception as e:
+        logger.error("Query processing error", exc_info=True)
         response_template['error'] = str(e)
         return jsonify(response_template), 500
 
-@app.route('/api/rebuild', methods=['POST'])
+@chat_bp.route('/api/rebuild', methods=['POST'])
 def rebuildrag():
     try:
+        logger.info("Starting RAG rebuild")
         for category in CHROMA_PATHS.values():
             if os.path.exists(category):
                 shutil.rmtree(category)
+                logger.info(f"Removed ChromaDB: {category}")
         
         chromadb.api.client.SharedSystemClient.clear_system_cache()
-
         global vectordbs, qa_chains
         vectordbs = {k: None for k in vectordbs}
         qa_chains = {k: None for k in qa_chains}
@@ -415,15 +434,17 @@ def rebuildrag():
         torch.cuda.empty_cache()
         
         initialize_rag_system()
+        logger.info("Rebuild completed successfully")
         return jsonify({"status": "rebuild completed"})
     except Exception as e:
+        logger.error("Rebuild failed", exc_info=True)
         return jsonify({"status": "rebuild failed", "error": str(e)}), 500
 
 if __name__ == '__main__':
     try:
         initialize_embedding_model()
         initialize_rag_system()
-        app.run(host='0.0.0.0', port=5003, debug=False)
+        chat_bp.run(host='0.0.0.0', port=5003, debug=False)
     except Exception as e:
-        print(f"Failed to initialize system: {str(e)}")
+        logger.critical("System initialization failed", exc_info=True)
         exit(1)
