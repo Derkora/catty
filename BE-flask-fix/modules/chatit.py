@@ -21,28 +21,33 @@ PROMPT_TEMPLATE_WITH_CONTEXT = {
     "general": PromptTemplate(
         input_variables=["context", "question"],
         template=(
-            "Berikut ini adalah informasi dari dokumen:\n"
+            "Kamu adalah Catty, Chatbot IT – asisten resmi Departemen Teknologi Informasi ITS.\n"
+            "Berikut ini adalah informasi dari dokumen yang relevan:\n"
             "{context}\n\n"
             "User: {question}\n"
-            "AI: Jawablah dalam bahasa Indonesia. "
-            "Jika pertanyaan di luar knowledge, jawab dengan \"Saya tidak tahu\". "
-            "Jika pertanyaan berkaitan dengan prestasi Departemen Teknologi Informasi ITS, berikan jawaban yang mempromosikan "
-            "keunggulan dan prestasi departemen. Jika terdapat kata-kata kasar atau tidak pantas dalam bahasa Indonesia, "
-            "tegur pengguna dengan sopan."
+            "AI: Jawablah dalam bahasa Indonesia. Jika pertanyaan berkaitan dengan prestasi atau informasi "
+            "mengenai Departemen Teknologi Informasi ITS, berikan jawaban yang mempromosikan keunggulan dan pencapaiannya. "
+            "Jika tidak ada informasi yang cukup dalam dokumen, jawab dengan \"Maaf, saya tidak menemukan informasi tersebut dalam materi ini.\" "
+            "Jika pengguna menyampaikan kata-kata kasar atau tidak pantas, tegur dengan sopan. "
+            "Bersikap ramah dan informatif dalam setiap jawaban."
         )
     ),
     "mahasiswa": PromptTemplate(
         input_variables=["context", "question"],
         template=(
-            "Berikut ini adalah informasi dari dokumen:\n"
+            "Kamu adalah Catty, Chatbot IT – asisten akademik Departemen Teknologi Informasi ITS.\n"
+            "Berikut ini adalah informasi dari materi kuliah dan dokumen pendukung:\n"
             "{context}\n\n"
             "User: {question}\n"
-            "AI: Jawablah dalam bahasa Indonesia berdasarkan knowledge akademik dengan informasi yang lebih mendalam. "
-            "Jika pertanyaan di luar knowledge, jawab dengan \"Saya tidak tahu\". "
-            "Jika terdapat kata-kata kasar atau tidak pantas dalam bahasa Indonesia, tegur pengguna dengan sopan."
+            "AI: Jawablah dengan bahasa Indonesia secara mendalam dan sesuai konteks akademik. "
+            "Jika pertanyaan menyangkut mata kuliah, berikan penjelasan yang terstruktur dan mendetail. "
+            "Jika tidak ditemukan informasi dalam dokumen, balas dengan \"Maaf, saya tidak menemukan informasi tersebut dalam materi kuliah ini.\" "
+            "Jika ada bahasa yang tidak pantas, berikan teguran secara sopan. "
+            "Tampilkan sikap profesional dan membantu sebagai asisten pembelajaran."
         )
     )
 }
+
 
 def rebuild_chroma():
     try:
@@ -63,7 +68,12 @@ def rebuild_chroma():
                 filename = os.path.basename(doc.metadata['source'])
                 split_docs = splitter.split_text(doc.page_content)
                 for d in split_docs:
-                    docs.append(Document(page_content=d.page_content, metadata={"filename": filename, "group": group}))
+                    metadata = {"filename": filename, "group": group}
+                    if "_p" in filename:
+                        page_number = ''.join(filter(str.isdigit, filename.rsplit("_p", 1)[-1]))
+                        metadata["page"] = page_number
+                    docs.append(Document(page_content=d.page_content, metadata=metadata))
+
 
         embed = HuggingFaceEmbeddings()
         Chroma.from_documents(docs, embed, persist_directory=VECTOR_DIR)
@@ -92,15 +102,40 @@ def api_chat():
 
         if not question:
             logger.warning("Empty question received in /api/chat")
-            return jsonify({"reply": "Maaf, pesan tidak boleh kosong."})
+            return jsonify({"answer": "Maaf, pesan tidak boleh kosong."})
 
         logger.info(f"Chat request received | Role: {role} | Question: {question}")
 
+        # Setup embedding & vectordb
         embed = HuggingFaceEmbeddings()
         vectordb = Chroma(persist_directory=VECTOR_DIR, embedding_function=embed)
 
-        prompt = PROMPT_TEMPLATE_WITH_CONTEXT.get(role, PROMPT_TEMPLATE_WITH_CONTEXT["general"])
+        # Ambil dokumen terkait
+        retrieved_docs = vectordb.similarity_search(question, k=3)
 
+        # Buat konteks dan referensi
+        context = ""
+        references = []
+        for doc in retrieved_docs:
+            filename = doc.metadata.get("filename", "unknown")
+            content_preview = doc.page_content[:250].replace('\n', ' ') + "..."
+
+            # Ekstrak nama file PDF dan halaman
+            if "_p" in filename:
+                base_name, page_part = filename.rsplit("_p", 1)
+                page_number = ''.join(filter(str.isdigit, page_part))
+                pdf_name = base_name + ".pdf"
+                page_text = f"halaman {page_number}" if page_number else "halaman tidak diketahui"
+                ref_line = f"- {pdf_name}, {page_text}: {content_preview}"
+            else:
+                pdf_name = filename.replace(".md", ".pdf")
+                ref_line = f"- {pdf_name}, halaman tidak diketahui: {content_preview}"
+
+            references.append(ref_line)
+            context += f"{doc.page_content}\n"
+
+        # Ambil prompt sesuai role
+        prompt = PROMPT_TEMPLATE_WITH_CONTEXT.get(role, PROMPT_TEMPLATE_WITH_CONTEXT["general"])
         llm = Ollama(model="qwen2.5:7b-instruct", base_url="http://host.docker.internal:11434")
 
         qa_chain = RetrievalQA.from_chain_type(
@@ -110,11 +145,22 @@ def api_chat():
             chain_type_kwargs={"prompt": prompt}
         )
 
+        # Proses pertanyaan
         result = qa_chain.run(question)
+        full_answer = result.strip()
+
+        # Jika LLM gagal atau jawab kosong/aneh
+        if not full_answer or full_answer.lower() in ["undefined", "none"]:
+            full_answer = "Maaf, server sedang sibuk dan tidak dapat menjawab saat ini."
+
+        # Tambahkan referensi jika tersedia
+        if references:
+            references = references[:3]  # batasi jumlah referensi
+            full_answer += "\n\nReferensi:\n" + "\n".join(f"• {r}" for r in references)
 
         logger.info("Answer generated successfully.")
-        return jsonify({"answer": result}), 200
+        return jsonify({"answer": full_answer}), 200
 
     except Exception as e:
         logger.error("Error during chat processing", exc_info=True)
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"answer": "Maaf, terjadi kesalahan saat memproses pertanyaan. Silakan coba lagi nanti."}), 500
