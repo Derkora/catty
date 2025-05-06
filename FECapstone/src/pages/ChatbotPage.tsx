@@ -470,7 +470,18 @@ const copyToClipboard = (text: string) => {
 const saveChatHistory = async (message: string, response: string, userType: 'public' | 'mahasiswa', sessionId: string, responseTime: number) => {
   try {
     const token = localStorage.getItem('token');
-    const historyResponse = await fetch(`${FLASK_API_BASE_URL}/api/histories`, {
+    const userString = localStorage.getItem('user');
+    let userData = null;
+    
+    if (userString) {
+      try {
+        userData = JSON.parse(userString);
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+      }
+    }
+
+    const historyResponse = await fetch(`http://localhost:1337/api/histories`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -483,7 +494,10 @@ const saveChatHistory = async (message: string, response: string, userType: 'pub
           userType,
           sessionId,
           responseTime,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          users_permissions_user: userData ? {
+            connect: [{ id: userData.id }]
+          } : null
         }
       })
     });

@@ -7,6 +7,25 @@ services:
     volumes:
       - ./templates:/app/templates
       - ./modules:/app/modules
+    environment:
+      - STRAPI_URL=http://strapi:1337
+      - OLLAMA_HOST=http://ollama:11434
+    networks:
+      - ai-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
     networks:
       - ai-network
     deploy:
@@ -18,4 +37,8 @@ services:
 
 networks:
   ai-network:
-    driver: bridge
+    external: true
+    name: capstone-knowledge-management-system_default
+
+volumes:
+  ollama_data:

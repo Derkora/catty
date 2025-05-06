@@ -26,7 +26,9 @@ import {
   GraduationCap,
   CalendarDays,
   LogOut,
-  X
+  X,
+  User,
+  PlusCircle
 } from 'lucide-react';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
@@ -34,6 +36,15 @@ import axios from 'axios';
 import { Badge } from '../components/ui/badge';
 import { Link } from 'react-router-dom';
 import { API_TOKEN, API_BASE_URL, FLASK_API_BASE_URL } from '../config'; // Import Flask URL
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../components/ui/dialog";
 
 interface Document {
   id: number;
@@ -88,18 +99,105 @@ interface Document {
   }>;
 }
 
+interface StrapiHistoryItem {
+  id: number;
+  message: string;
+  response: string;
+  userType: 'public' | 'mahasiswa';
+  sessionId: string;
+  responseTime: number;
+  timestamp: string;
+  createdAt: string;
+  users_permissions_user: {
+    id: number;
+    username: string;
+    email: string;
+  } | null;
+}
+
 interface History {
   id: number;
-  attributes: {
-    message: string;
-    response: string;
-    userType: 'public' | 'mahasiswa';
-    sessionId: string;
-    responseTime: number;
-    publishedAt: string;
-    timestamp: string;
+  message: string;
+  response: string;
+  userType: 'public' | 'mahasiswa';
+  sessionId: string;
+  responseTime: number;
+  timestamp: string;
+  createdAt: string;
+  user?: {
+    id: number;
+    username: string;
+    email: string;
   };
 }
+
+interface StrapiResponse<T> {
+  data: T[];
+  meta: {
+    pagination: {
+      page: number;
+      pageSize: number;
+      pageCount: number;
+      total: number;
+    };
+  };
+}
+
+interface CollapsibleMessageProps {
+  text: string;
+  maxLength?: number;
+  onClick?: (fullText: string) => void; // Add onClick prop
+}
+
+const CollapsibleMessage = ({ text, maxLength = 200, onClick }: CollapsibleMessageProps) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const shouldTruncate = text.length > maxLength;
+
+  const handleClick = () => {
+    if (onClick) {
+      onClick(text);
+    } else if (shouldTruncate) {
+      setIsExpanded(!isExpanded);
+    }
+  };
+
+  if (!shouldTruncate && !onClick) {
+    return <div className="whitespace-pre-wrap">{text}</div>;
+  }
+
+  return (
+    <div className="space-y-2">
+      <div
+        className={`whitespace-pre-wrap ${shouldTruncate && !isExpanded ? 'line-clamp-3' : ''} ${onClick ? 'cursor-pointer hover:underline' : ''}`}
+        onClick={handleClick}
+      >
+        {text}
+      </div>
+      {shouldTruncate && !onClick && (
+        <button
+          onClick={handleClick}
+          className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1"
+        >
+          {isExpanded ? (
+            <>
+              <span>Show less</span>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+              </svg>
+            </>
+          ) : (
+            <>
+              <span>Show more</span>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </>
+          )}
+        </button>
+      )}
+    </div>
+  );
+};
 
 const AdminDashboard: React.FC = () => {
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -119,10 +217,19 @@ const AdminDashboard: React.FC = () => {
   const [histories, setHistories] = useState<History[]>([]);
   const [historyFilter, setHistoryFilter] = useState('all'); // 'all', 'public', 'mahasiswa'
   const [historySort, setHistorySort] = useState('newest'); // 'newest', 'oldest'
+  const [userTypeFilter, setUserTypeFilter] = useState('all');
+  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+  const [newUser, setNewUser] = useState({ username: '', email: '', password: '' });
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [users, setUsers] = useState<any[]>([]); // State for users
+  const [loadingUsers, setLoadingUsers] = useState(true); // Loading state for users
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false); // State for history modal
+  const [historyModalContent, setHistoryModalContent] = useState({ title: '', text: '' }); // State for modal content
 
   useEffect(() => {
     fetchDocuments();
     fetchHistories();
+    fetchUsers(); // Fetch users on mount
   }, [refreshKey]);
 
   useEffect(() => {
@@ -181,23 +288,47 @@ const AdminDashboard: React.FC = () => {
       console.log('Attempting to fetch histories from Strapi...');
       const token = localStorage.getItem('token');
       console.log('Using token:', token);
-      const response = await axios.get<{ data: History[] }>(`${API_BASE_URL}/api/histories?populate=*`, {
+
+      const response = await axios.get<StrapiResponse<StrapiHistoryItem>>(`${API_BASE_URL}/api/histories?populate=users_permissions_user`, {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${token}`
         }
       });
+
       console.log('Histories response:', response);
       console.log('Histories data:', response.data);
-      setHistories(response.data.data);
+      console.log('Histories data structure:', JSON.stringify(response.data, null, 2));
+
+      if (response.data && Array.isArray(response.data.data)) {
+        const transformedHistories = response.data.data.map(item => {
+          console.log('Processing history item:', item);
+          const userType = item.userType === 'mahasiswa' ? 'mahasiswa' : 'public';
+          return {
+            id: item.id,
+            message: item.message || '',
+            response: item.response || '',
+            userType,
+            sessionId: item.sessionId || '',
+            responseTime: item.responseTime || 0,
+            timestamp: item.timestamp || item.createdAt,
+            createdAt: item.createdAt,
+            user: item.users_permissions_user ? {
+              id: item.users_permissions_user.id,
+              username: item.users_permissions_user.username,
+              email: item.users_permissions_user.email
+            } : undefined
+          } as History;
+        });
+
+        console.log('Transformed histories:', transformedHistories);
+        setHistories(transformedHistories);
+      } else {
+        console.error('Invalid data structure received from Strapi');
+        setHistories([]);
+      }
     } catch (error) {
       console.error('Error fetching histories:', error);
-      if (axios.isAxiosError(error)) {
-        console.error('Error details:', {
-          status: error.response?.status,
-          statusText: error.response?.statusText,
-          data: error.response?.data
-        });
-      }
+      setHistories([]);
     }
   };
 
@@ -273,6 +404,92 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  // --- START: User Management Handlers ---
+  const fetchUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      console.log('Attempting to fetch users from Strapi...');
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/api/users?populate=role`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        }
+      });
+      console.log('Strapi users response:', response);
+
+      if (response.data && Array.isArray(response.data)) {
+        setUsers(response.data);
+      } else {
+        console.error('Unexpected data structure from Strapi Users API:', response.data);
+        setUsers([]);
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      setUsers([]);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  const handleNewUserInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setNewUser(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsCreatingUser(true);
+    const token = localStorage.getItem('token');
+    // IMPORTANT: Replace 'MAHASISWA_ROLE_ID' with the actual ID of the 'mahasiswa' role in your Strapi setup.
+    // You can find this ID in the Strapi Admin Panel (Settings -> Roles -> Mahasiswa).
+    const MAHASISWA_ROLE_ID = 3; // Replace with actual ID
+
+    if (!token) {
+      alert('Admin token not found. Please log in again.');
+      setIsCreatingUser(false);
+      return;
+    }
+
+    if (!MAHASISWA_ROLE_ID) {
+        alert('Mahasiswa Role ID is not set. Please configure it in the code.');
+        setIsCreatingUser(false);
+        return;
+    }
+
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/users`,
+        {
+          username: newUser.username,
+          email: newUser.email,
+          password: newUser.password,
+          role: MAHASISWA_ROLE_ID, // Assign the 'mahasiswa' role
+          confirmed: true, // Automatically confirm the user
+          blocked: false,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      console.log('User created:', response.data);
+      alert('User Mahasiswa berhasil ditambahkan!');
+      setNewUser({ username: '', email: '', password: '' });
+      setIsAddUserModalOpen(false);
+      // Optionally, refresh the user list here if you implement one
+    } catch (error: any) {
+      console.error('Error creating user:', error);
+      const errorMessage = error.response?.data?.error?.message || 'Gagal menambahkan user. Periksa kembali data atau hubungi administrator.';
+      alert(`Error: ${errorMessage}`);
+    } finally {
+      setIsCreatingUser(false);
+    }
+  };
+  // --- END: User Management Handlers ---
+
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('id-ID', {
       day: '2-digit',
@@ -299,10 +516,10 @@ const AdminDashboard: React.FC = () => {
 
   const filteredHistories = histories.filter(history => {
     if (historyFilter === 'all') return true;
-    return history.attributes.userType === historyFilter;
+    return history.userType === historyFilter;
   }).sort((a, b) => {
-    const dateA = new Date(a.attributes.timestamp).getTime();
-    const dateB = new Date(b.attributes.timestamp).getTime();
+    const dateA = new Date(a.timestamp || a.createdAt || 0).getTime();
+    const dateB = new Date(b.timestamp || b.createdAt || 0).getTime();
     return historySort === 'newest' ? dateB - dateA : dateA - dateB;
   });
 
@@ -323,85 +540,8 @@ const AdminDashboard: React.FC = () => {
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <Header />
       
-      <div className="pt-16 flex-grow flex">
-        {/* Sidebar */}
-        <div className="hidden md:block min-h-[calc(100vh-64px)] w-64 bg-white border-r border-slate-200 pt-5 pb-10 overflow-y-auto">
-          <div className="px-6 mb-6">
-            <h3 className="text-xs font-medium uppercase tracking-wider text-slate-500">
-              Admin Panel
-            </h3>
-            <div className="mt-2 -mx-3">
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start text-sm font-medium mb-1 bg-blue-50 text-blue-700"
-              >
-                <LayoutDashboard className="h-4 w-4 mr-3" />
-                Dashboard
-              </Button>
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start text-sm font-medium mb-1"
-              >
-                <GraduationCap className="h-4 w-4 mr-3" />
-                Mahasiswa
-              </Button>
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start text-sm font-medium mb-1"
-              >
-                <BookOpen className="h-4 w-4 mr-3" />
-                Mata Kuliah
-              </Button>
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start text-sm font-medium mb-1"
-              >
-                <FileText className="h-4 w-4 mr-3" />
-                Dokumen
-              </Button>
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start text-sm font-medium mb-1"
-              >
-                <CalendarDays className="h-4 w-4 mr-3" />
-                Jadwal
-              </Button>
-            </div>
-          </div>
-
-          <div className="px-6 mb-6">
-            <h3 className="text-xs font-medium uppercase tracking-wider text-slate-500">
-              Pengaturan
-            </h3>
-            <div className="mt-2 -mx-3">
-              
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start text-sm font-medium mb-1"
-              >
-                <Settings className="h-4 w-4 mr-3" />
-                Pengaturan Akun
-              </Button>
-              <Link to="/">
-                <Button 
-                  variant="ghost" 
-                  className="w-full justify-start text-sm font-medium mb-1"
-                >
-                  <LogOut className="h-4 w-4 mr-3" />
-                  Kembali ke Situs
-                </Button>
-              </Link>
-            </div>
-          </div>
-
-          <div className="px-6">
-            <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
-              <h4 className="text-sm font-medium text-blue-800">Admin System</h4>
-              <p className="text-xs text-blue-600 mt-1">Versi 1.0.0</p>
-              <p className="text-xs text-blue-600 mt-3">Departemen Teknologi Informasi ITS</p>
-            </div>
-          </div>
-        </div>
+      <div className="pt-16 flex-grow"> {/* Removed 'flex' class */}
+        {/* Sidebar removed */}
         
         {/* Main content */}
         <main className="flex-grow p-6">
@@ -842,74 +982,280 @@ const AdminDashboard: React.FC = () => {
               <TabsContent value="users">
                 <Card className="p-6 border border-slate-200">
                   <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-bold text-slate-800">Pengelolaan Pengguna</h2>
-                    <Button className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700">
-                      <Users className="h-4 w-4 mr-2" />
-                      Tambah Pengguna
-                    </Button>
+                    <h2 className="text-xl font-bold text-slate-800">Pengelolaan Pengguna Mahasiswa</h2>
+                    <Dialog open={isAddUserModalOpen} onOpenChange={setIsAddUserModalOpen}>
+                      <DialogTrigger asChild>
+                        <Button className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700">
+                          <PlusCircle className="h-4 w-4 mr-2" />
+                          Tambah Mahasiswa
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                          <DialogTitle>Tambah Pengguna Mahasiswa Baru</DialogTitle>
+                          <DialogDescription>
+                            Masukkan detail untuk pengguna mahasiswa baru. Pastikan role 'Mahasiswa IT' sudah ada di Strapi.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <form onSubmit={handleCreateUser}>
+                          <div className="grid gap-4 py-4">
+                            <div className="grid grid-cols-4 items-center gap-4">
+                              <Label htmlFor="username" className="text-right">
+                                Username
+                              </Label>
+                              <Input
+                                id="username"
+                                name="username"
+                                value={newUser.username}
+                                onChange={handleNewUserInputChange}
+                                className="col-span-3"
+                                required
+                                minLength={3}
+                              />
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                              <Label htmlFor="email" className="text-right">
+                                Email
+                              </Label>
+                              <Input
+                                id="email"
+                                name="email"
+                                type="email"
+                                value={newUser.email}
+                                onChange={handleNewUserInputChange}
+                                className="col-span-3"
+                                required
+                                minLength={6}
+                              />
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                              <Label htmlFor="password" className="text-right">
+                                Password
+                              </Label>
+                              <Input
+                                id="password"
+                                name="password"
+                                type="password"
+                                value={newUser.password}
+                                onChange={handleNewUserInputChange}
+                                className="col-span-3"
+                                required
+                                minLength={6}
+                              />
+                            </div>
+                          </div>
+                          <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setIsAddUserModalOpen(false)}>
+                              Batal
+                            </Button>
+                            <Button type="submit" disabled={isCreatingUser} className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700">
+                              {isCreatingUser ? (
+                                <>
+                                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                  Menyimpan...
+                                </>
+                              ) : (
+                                'Simpan Pengguna'
+                              )}
+                            </Button>
+                          </DialogFooter>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
                   </div>
-                  <div className="h-80 flex items-center justify-center border rounded-lg bg-slate-50">
-                    <div className="text-center">
-                      <Users className="h-12 w-12 mx-auto text-slate-300" />
-                      <p className="mt-2 text-slate-600">Fitur pengelolaan pengguna sedang dalam pengembangan</p>
+                  
+                  {loadingUsers ? (
+                    <div className="py-4 text-center">
+                      <RefreshCw className="h-8 w-8 mx-auto text-slate-400 animate-spin" />
+                      <p className="mt-2 text-slate-500">Memuat data pengguna...</p>
                     </div>
-                  </div>
+                  ) : users.length === 0 ? (
+                    <div className="py-8 text-center">
+                      <Users className="h-12 w-12 mx-auto text-slate-400 mb-2" />
+                      <p className="text-slate-600">Belum ada pengguna tersedia</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-lg border border-slate-200">
+                      <Table>
+                        <TableHeader className="bg-slate-50">
+                          <TableRow>
+                            <TableHead>Username</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Role</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Aksi</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {users.map(user => (
+                            <TableRow key={user.id} className="hover:bg-slate-50/80">
+                              <TableCell className="font-medium">{user.username}</TableCell>
+                              <TableCell>{user.email}</TableCell>
+                              <TableCell>
+                                <Badge className={`${
+                                  user.role?.type === 'mahasiswa_it'
+                                    ? 'bg-green-100 text-green-800 hover:bg-green-100'
+                                    : user.role?.type === 'admin_it'
+                                      ? 'bg-blue-100 text-blue-800 hover:bg-blue-100'
+                                      : 'bg-slate-100 text-slate-800 hover:bg-slate-100'
+                                }`}>
+                                  {user.role?.name || 'No Role'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge className={`${
+                                  user.confirmed ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                }`}>
+                                  {user.confirmed ? 'Confirmed' : 'Unconfirmed'}
+                                </Badge>
+                                <Badge className={`ml-2 ${
+                                  user.blocked ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                                }`}>
+                                  {user.blocked ? 'Blocked' : 'Active'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end space-x-2">
+                                  {/* Add user action buttons here (e.g., Edit, Delete) */}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    // onClick={() => handleEditUser(user.id)} // Implement edit handler
+                                  >
+                                    <Edit className="h-4 w-4 text-slate-600" />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 border-red-200 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
+                                    // onClick={() => handleDeleteUser(user.id)} // Implement delete handler
+                                  >
+                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
                 </Card>
               </TabsContent>
 
               <TabsContent value="history">
-                <Card className="p-6 border border-slate-200">
-                  <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold text-slate-800">Chat History</h2>
+                <div className="space-y-6">
+                  <div className="flex justify-between items-center">
+                    <h2 className="text-2xl font-bold text-gray-900">Chat History</h2>
                     <div className="flex gap-4">
-                      <Select value={historyFilter} onValueChange={setHistoryFilter}>
-                        <SelectTrigger className="w-[180px]">
-                          <SelectValue placeholder="Filter by user type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Users</SelectItem>
-                          <SelectItem value="public">Public Users</SelectItem>
-                          <SelectItem value="mahasiswa">Mahasiswa</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Select value={historySort} onValueChange={setHistorySort}>
-                        <SelectTrigger className="w-[180px]">
-                          <SelectValue placeholder="Sort by" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="newest">Newest First</SelectItem>
-                          <SelectItem value="oldest">Oldest First</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <select
+                        value={userTypeFilter}
+                        onChange={(e) => setUserTypeFilter(e.target.value)}
+                        className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="all">All Users</option>
+                        <option value="public">Public</option>
+                        <option value="mahasiswa">Mahasiswa</option>
+                      </select>
                     </div>
                   </div>
-                  <div className="space-y-4">
-                    {filteredHistories.map(history => (
-                      <div key={history.id} className="border rounded-lg p-4">
-                        <div className="flex justify-between items-start mb-2">
-                          <span className="text-sm text-slate-500">
-                            {new Date(history.attributes.timestamp).toLocaleString()}
-                          </span>
-                          <Badge variant={history.attributes.userType === 'mahasiswa' ? 'default' : 'outline'}>
-                            {history.attributes.userType}
-                          </Badge>
-                        </div>
-                        <div className="space-y-2">
-                          <p className="font-medium">User: {history.attributes.message}</p>
-                          <p className="text-slate-600">Bot: {history.attributes.response}</p>
-                          <p className="text-xs text-slate-500">
-                            Response time: {history.attributes.responseTime}ms
-                          </p>
-                        </div>
-                      </div>
-                    ))}
+
+                  <div className="bg-white rounded-lg shadow overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">User</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12">Type</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">Message</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">Response</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12">Time</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12">Response Time</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {filteredHistories.map((history) => (
+                            <tr key={history.id} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="flex items-center">
+                                  <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                    <User className="h-6 w-6 text-blue-600" />
+                                  </div>
+                                  <div className="ml-4">
+                                    <div className="text-sm font-medium text-gray-900">
+                                      {history.user?.username || 'Anonymous'}
+                                    </div>
+                                    <div className="text-sm text-gray-500">
+                                      {history.user?.email || 'No email'}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                  history.userType === 'mahasiswa' 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-blue-100 text-blue-800'
+                                }`}>
+                                  {history.userType}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2 align-top">
+                                <div className="max-w-md">
+                                  <CollapsibleMessage
+                                    text={history.message}
+                                    onClick={(text) => {
+                                      setHistoryModalContent({ title: 'User Message', text });
+                                      setIsHistoryModalOpen(true);
+                                    }}
+                                  />
+                                </div>
+                              </td>
+                              <td className="px-4 py-2 align-top">
+                                <div className="max-w-md">
+                                  <CollapsibleMessage
+                                    text={history.response}
+                                    onClick={(text) => {
+                                      setHistoryModalContent({ title: 'Chatbot Response', text });
+                                      setIsHistoryModalOpen(true);
+                                    }}
+                                  />
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 align-top">
+                                {new Date(history.timestamp).toLocaleString()}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 align-top">
+                                {history.responseTime}ms
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </Card>
+                </div>
               </TabsContent>
             </Tabs>
           </div>
         </main>
       </div>
+
+      {/* History Detail Modal */}
+      <Dialog open={isHistoryModalOpen} onOpenChange={setIsHistoryModalOpen}>
+        <DialogContent className="sm:max-w-[800px] max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{historyModalContent.title}</DialogTitle>
+          </DialogHeader>
+          <div className="overflow-y-auto flex-grow p-4 border rounded-md bg-slate-50">
+            <p className="whitespace-pre-wrap text-sm text-slate-700">{historyModalContent.text}</p>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setIsHistoryModalOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Footer />
     </div>
