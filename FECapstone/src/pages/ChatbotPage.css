@@ -100,16 +100,16 @@
 }
 
 .bg-grid-pattern {
-  background-image: 
+  background-image:
     linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px);
   background-size: 30px 30px;
 }
 
 .shimmer {
-  background: linear-gradient(90deg, 
-    rgba(255,255,255,0) 0%, 
-    rgba(255,255,255,0.08) 50%, 
+  background: linear-gradient(90deg,
+    rgba(255,255,255,0) 0%,
+    rgba(255,255,255,0.08) 50%,
     rgba(255,255,255,0) 100%);
   background-size: 200% 100%;
   animation: shimmer 3s infinite;
@@ -259,6 +259,8 @@
   border-radius: 10px;
 }
 
+
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(148, 163, 184, 0.5);
   border-radius: 10px;
@@ -310,13 +312,4 @@
     opacity: 0;
     transform: scale(0.9);
   }
-}
-
-/* Added from ChatbotPage.tsx for wave animation */
-.wave-animation {
-  /* You might need to adjust animation properties if they were defined in JS */
-}
-
-.wave-animation-delay {
-  /* You might need to adjust animation properties if they were defined in JS */
 }

@@ -206,7 +206,7 @@ const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('documents');
   const [documentForm, setDocumentForm] = useState({
     namaDokumen: '',
-    jenisDokumen: 'Dokumen_Administrasi',
+    jenisDokumen: 'Dokumen_Umum',
   });
   const [files, setFiles] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -259,22 +259,54 @@ const AdminDashboard: React.FC = () => {
   const fetchDocuments = async () => {
     setLoading(true);
     try {
-      console.log('Attempting to fetch documents from Strapi...');
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_BASE_URL}/api/dokumens?populate=*`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        }
-      });
-      console.log('Strapi response:', response);
-      console.log('Strapi data structure:', JSON.stringify(response.data, null, 2));
+      const groups = ["umum", "mahasiswa"]; // Or match your categories
+      let allDocuments: Document[] = [];
       
-      if (response.data && Array.isArray(response.data.data)) {
-        setDocuments(response.data.data);
-      } else {
-        console.error('Unexpected data structure from Strapi API:', response.data);
-        setDocuments([]);
+      for (const group of groups) {
+        const response = await axios.get(`${FLASK_API_BASE_URL}/api/files?category=${group}`);
+        
+        if (response.data.length > 0 && response.data[0].pdfs) {
+          const docs = response.data[0].pdfs.map((pdf: string) => {
+            const pdfName = pdf.replace('.pdf', '');
+            const pdfUrl = `${FLASK_API_BASE_URL}/static/uploads/original/${group}/${pdf}`;
+            
+            return {
+              id: Math.random(), // You'll need a better ID strategy
+              documentId: pdfName,
+              namaDokumen: pdf,
+              jenisDokumen: group === "umum" ? "Dokumen_Umum" : "Dokumen_Mahasiswa",
+              createdAt: new Date().toISOString(), // You might need to get this from metadata
+              updatedAt: new Date().toISOString(),
+              publishedAt: new Date().toISOString(),
+              fileDokumen: [{
+                id: Math.random(),
+                documentId: pdfName,
+                name: pdf,
+                alternativeText: null,
+                caption: null,
+                width: 0,
+                height: 0,
+                formats: {},
+                hash: "",
+                ext: ".pdf",
+                mime: "application/pdf",
+                size: 0, // You might need to get this from metadata
+                url: pdfUrl,
+                previewUrl: null,
+                provider: "local",
+                provider_metadata: null,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                publishedAt: new Date().toISOString()
+              }]
+            };
+          });
+          
+          allDocuments = [...allDocuments, ...docs];
+        }
       }
+      
+      setDocuments(allDocuments);
     } catch (error) {
       console.error('Error fetching documents:', error);
       setDocuments([]);
@@ -351,55 +383,61 @@ const AdminDashboard: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-
+  
     try {
       if (files.length === 0) {
         alert('Pilih file terlebih dahulu!');
         return;
       }
-
+  
       const formData = new FormData();
-      files.forEach(file => {
-        formData.append('file', file);
-      });
-      formData.append('jenisDokumen', documentForm.jenisDokumen);
-      formData.append('namaDokumen', documentForm.namaDokumen);
-
+      formData.append("file", files[0]); // Append the file
+      formData.append("jenisDokumen", documentForm.jenisDokumen);
+      formData.append("namaDokumen", documentForm.namaDokumen);
+  
+      console.log("Mengunggah file:", files[0].name);
+  
       const response = await axios.post(
-        `${FLASK_API_BASE_URL}/convert`,
+        `${FLASK_API_BASE_URL}/api/convert`,
         formData,
         {
           headers: {
-            'Content-Type': 'multipart/form-data'
-          }
+            "Content-Type": "multipart/form-data",
+          },
         }
       );
-
+  
       if (response.data.message) {
         alert(response.data.message);
-        setDocumentForm({ namaDokumen: '', jenisDokumen: 'Dokumen_Administrasi' });
+        setDocumentForm({ namaDokumen: "", jenisDokumen: "Dokumen_Umum" });
         setFiles([]);
-        setRefreshKey(prev => prev + 1);
+        setRefreshKey((prev) => prev + 1);
       }
     } catch (error) {
-      console.error('Error uploading file:', error);
-      alert('Gagal mengunggah file. Silakan coba lagi.');
+      console.error("Error uploading file:", error);
+      alert("Gagal mengunggah file. Silakan coba lagi.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleDeleteDocument = async (id: number) => {
+  const handleDeleteDocument = async (documentId: string, category: string) => {
     if (window.confirm('Are you sure you want to delete this document?')) {
       try {
-        await axios.delete(`${API_BASE_URL}/api/dokumens/${id}`, {
-          headers: {
-            Authorization: `Bearer ${API_TOKEN}`,
-          }
-        });
+        // Extract the category from the document
+        const categoryMap: Record<string, string> = {
+          'Dokumen_Umum': 'umum',
+          'Dokumen_Mahasiswa': 'mahasiswa'
+        };
+        
+        const mappedCategory = category ? categoryMap[category] : 'umum';
+        
+        await axios.delete(`${FLASK_API_BASE_URL}/api/files/${documentId}?category=${mappedCategory}`);
+        alert('Berhasil dihapus!');
         setRefreshKey(prev => prev + 1);
       } catch (error) {
         console.error('Error deleting document:', error);
+        alert('Penghapusan gagal');
       }
     }
   };
@@ -487,7 +525,6 @@ const AdminDashboard: React.FC = () => {
       setIsCreatingUser(false);
     }
   };
-  // --- END: User Management Handlers ---
 
 
   const formatDate = (dateString: string) => {
@@ -540,8 +577,7 @@ const AdminDashboard: React.FC = () => {
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <Header />
       
-      <div className="pt-16 flex-grow"> {/* Removed 'flex' class */}
-        {/* Sidebar removed */}
+      <div className="pt-16 flex-grow">
         
         {/* Main content */}
         <main className="flex-grow p-6">
@@ -585,9 +621,9 @@ const AdminDashboard: React.FC = () => {
               <Card className="p-6 border-l-4 border-l-violet-500 hover:shadow-md transition-all">
                 <div className="flex justify-between items-center">
                   <div>
-                    <p className="text-sm font-medium text-slate-500">Dokumen Administrasi</p>
+                    <p className="text-sm font-medium text-slate-500">Dokumen Umum</p>
                     <h3 className="text-2xl font-bold text-slate-800 mt-1">
-                      {documents.filter(d => d?.jenisDokumen === 'Dokumen_Administrasi').length}
+                      {documents.filter(d => d?.jenisDokumen === 'Dokumen_Umum').length}
                     </h3>
                   </div>
                   <div className="bg-violet-100 p-3 rounded-full">
@@ -601,7 +637,7 @@ const AdminDashboard: React.FC = () => {
                   <div>
                     <p className="text-sm font-medium text-slate-500">Dokumen Mata Kuliah</p>
                     <h3 className="text-2xl font-bold text-slate-800 mt-1">
-                      {documents.filter(d => d?.jenisDokumen === 'Dokumen_MataKuliah').length}
+                      {documents.filter(d => d?.jenisDokumen === 'Dokumen_Mahasiswa').length}
                     </h3>
                   </div>
                   <div className="bg-green-100 p-3 rounded-full">
@@ -661,8 +697,8 @@ const AdminDashboard: React.FC = () => {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Semua Dokumen</SelectItem>
-                          <SelectItem value="Dokumen_Administrasi">Administrasi</SelectItem>
-                          <SelectItem value="Dokumen_MataKuliah">Mata Kuliah</SelectItem>
+                          <SelectItem value="Dokumen_Umum">Umum</SelectItem>
+                          <SelectItem value="Dokumen_Mahasiswa">Mata Kuliah</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -696,11 +732,11 @@ const AdminDashboard: React.FC = () => {
                               <TableCell className="font-medium">{doc?.namaDokumen || 'Unnamed Document'}</TableCell>
                               <TableCell>
                                 <Badge className={`${
-                                  doc?.jenisDokumen === 'Dokumen_Administrasi' 
+                                  doc?.jenisDokumen === 'Dokumen_Umum' 
                                     ? 'bg-blue-100 text-blue-800 hover:bg-blue-100' 
                                     : 'bg-green-100 text-green-800 hover:bg-green-100'
                                 }`}>
-                                  {doc?.jenisDokumen === 'Dokumen_Administrasi' ? 'Administrasi' : 'Mata Kuliah'}
+                                  {doc?.jenisDokumen === 'Dokumen_Umum' ? 'Umum' : 'Mata Kuliah'}
                                 </Badge>
                               </TableCell>
                               <TableCell>{doc?.createdAt ? formatDate(doc.createdAt) : 'Unknown'}</TableCell>
@@ -740,7 +776,7 @@ const AdminDashboard: React.FC = () => {
                                     variant="outline" 
                                     size="sm"
                                     className="h-8 w-8 p-0 border-red-200 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
-                                    onClick={() => handleDeleteDocument(doc.id)}
+                                    onClick={() => handleDeleteDocument(doc.documentId, doc.jenisDokumen)}
                                   >
                                     <Trash2 className="h-4 w-4 text-red-500" />
                                   </Button>
@@ -774,11 +810,11 @@ const AdminDashboard: React.FC = () => {
                           <div className="flex items-center">
                             <span className="font-medium">Jenis Dokumen:</span>{' '}
                             <Badge className={`ml-2 ${
-                              previewDocument.jenisDokumen === 'Dokumen_Administrasi' 
+                              previewDocument.jenisDokumen === 'Dokumen_Umum' 
                                 ? 'bg-blue-100 text-blue-800' 
                                 : 'bg-green-100 text-green-800'
                             }`}>
-                              {previewDocument.jenisDokumen === 'Dokumen_Administrasi' ? 'Administrasi' : 'Mata Kuliah'}
+                              {previewDocument.jenisDokumen === 'Dokumen_Umum' ? 'Umum' : 'Mata Kuliah'}
                             </Badge>
                           </div>
                           <div>
@@ -878,8 +914,8 @@ const AdminDashboard: React.FC = () => {
                             <SelectValue placeholder="Pilih jenis dokumen" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Dokumen_Administrasi">Dokumen Administrasi</SelectItem>
-                            <SelectItem value="Dokumen_MataKuliah">Dokumen Mata Kuliah</SelectItem>
+                            <SelectItem value="Dokumen_Umum">Dokumen Umum</SelectItem>
+                            <SelectItem value="Dokumen_Mahasiswa">Dokumen Mahasiswa</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -895,12 +931,11 @@ const AdminDashboard: React.FC = () => {
                           <Input
                             id="fileDokumen"
                             type="file"
-                            multiple
                             className="hidden"
                             onChange={handleFileChange}
                             required
                           />
-                          <Button 
+                          <Button
                             type="button"
                             variant="outline"
                             className="border-blue-300 hover:border-blue-400 hover:bg-blue-50"
@@ -913,25 +948,23 @@ const AdminDashboard: React.FC = () => {
                         {files.length > 0 && (
                           <div className="mt-6 space-y-2 border-t border-slate-200 pt-4">
                             <p className="text-sm font-medium text-slate-700">File terpilih:</p>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              {files.map((file, index) => (
-                                <div key={index} className="flex items-center border rounded-lg p-3 bg-white">
-                                  <FileText className="h-5 w-5 mr-3 text-blue-500" />
-                                  <div className="overflow-hidden">
-                                    <p className="truncate text-sm font-medium">{file.name}</p>
-                                    <p className="text-xs text-slate-500">{formatFileSize(file.size)}</p>
-                                  </div>
+                            <div className="grid grid-cols-1 gap-3">
+                              <div className="flex items-center border rounded-lg p-3 bg-white">
+                                <FileText className="h-5 w-5 mr-3 text-blue-500" />
+                                <div className="overflow-hidden">
+                                  <p className="truncate text-sm font-medium">{files[0].name}</p>
+                                  <p className="text-xs text-slate-500">{formatFileSize(files[0].size)}</p>
                                 </div>
-                              ))}
+                              </div>
                             </div>
                           </div>
                         )}
                       </div>
                     </div>
-                    
+
                     <div className="flex justify-end pt-4 border-t border-slate-200">
-                      <Button 
-                        type="submit" 
+                      <Button
+                        type="submit"
                         className="px-6 py-2 bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white shadow-md hover:shadow-lg transition-all"
                         disabled={isSubmitting}
                       >
