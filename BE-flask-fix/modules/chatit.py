@@ -1,7 +1,9 @@
 import os
 import shutil
 import logging
+import time # Added for response time calculation
 from flask import Blueprint, request, jsonify
+from .history_utils import save_chat_history # Import from history_utils.py
 from langchain.vectorstores import Chroma
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.text_splitter import MarkdownHeaderTextSplitter
@@ -99,6 +101,9 @@ def api_chat():
         data = request.get_json()
         question = data.get("message", "").strip()
         role = data.get("role", "general")
+        session_id = data.get("sessionId", "default") # Extract sessionId
+
+        start_time = time.time() # Record start time
 
         if not question:
             logger.warning("Empty question received in /api/chat")
@@ -159,6 +164,19 @@ def api_chat():
             full_answer += "\n\nReferensi:\n" + "\n".join(f"• {r}" for r in references)
 
         logger.info("Answer generated successfully.")
+
+        end_time = time.time() # Record end time
+        response_time = int((end_time - start_time) * 1000) # Calculate response time in ms
+
+        # Save chat history
+        save_chat_history(
+            message=question,
+            response=full_answer,
+            role=role,
+            session_id=session_id,
+            response_time=response_time
+        )
+
         return jsonify({"answer": full_answer}), 200
 
     except Exception as e:

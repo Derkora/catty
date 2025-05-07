@@ -8,6 +8,9 @@ services:
       - ./data:/app/data
       - ./templates:/app/templates
       - ./modules:/app/modules
+    environment:
+      - STRAPI_URL=http://strapi:1337 # Added Strapi URL
+      - OLLAMA_HOST=http://ollama:11434 # Assuming ollama is on the same network
     networks:
       - ai-network
     deploy:

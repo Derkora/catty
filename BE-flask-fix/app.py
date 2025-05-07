@@ -2,6 +2,7 @@ import os
 import sys
 import threading
 import logging
+# requests and datetime removed as they are now in history_utils.py
 from waitress import serve
 from flask import Flask, send_from_directory, request, jsonify
 from flask_cors import CORS
@@ -29,7 +30,9 @@ os.environ["REBUILD_URL"] = REBUILD_URL
 # === Import blueprints & helper functions ===
 from modules.chatit import chat_bp
 from modules.convertit import convert_bp, create_directory, ALLOWED_GROUPS, process_queue
-from modules.crudit import crudit_bp 
+from modules.crudit import crudit_bp
+
+# save_chat_history function and STRAPI_URL removed, now in modules/history_utils.py
 
 # Register blueprints
 app.register_blueprint(chat_bp)

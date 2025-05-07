@@ -13,3 +13,9 @@ services:
       DATABASE_CLIENT: sqlite
       DATABASE_FILENAME: ./data/data.db
     restart: unless-stopped
+    networks:
+      - ai-network
+
+networks:
+  ai-network:
+    driver: bridge
