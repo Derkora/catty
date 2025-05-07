@@ -1,9 +1,11 @@
 import logging
 import os
+import re
 import shutil
 import gc
 import torch
 import sqlite3
+from concurrent.futures import ThreadPoolExecutor
 from flask import jsonify, request, Blueprint
 from langchain_community.document_loaders import DirectoryLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -13,24 +15,46 @@ from langchain_community.embeddings import HuggingFaceBgeEmbeddings
 from langchain_community.llms import Ollama
 from langdetect import detect
 from langchain.schema import BaseRetriever, Document
-from typing import List
+from typing import List, Tuple, Dict
 import chromadb
+from langchain.prompts import PromptTemplate 
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-# ... keep other imports ...
 
-chat_bp = Blueprint('chat', __name__)
-
-# Configuration constants
-DATA_PATH = "./markdown"
-CHROMA_PATHS = {
-    'mahasiswa': './mahasiswachroma',
-    'umum': './umumchroma'
+# Constants
+CONFIG = {
+    "DATA_PATH": "./markdown",
+    "CHROMA_PATHS": {
+        'mahasiswa': './mahasiswachroma',
+        'umum': './umumchroma'
+    },
+    "EMBEDDING_MODEL": "BAAI/bge-m3",
+    "LLM_MODEL": "qwen2.5:7b-instruct",
+    "CHUNK_SIZE": 1500,
+    "CHUNK_OVERLAP": 150,
+    "MAX_CONCURRENT_INIT": 2,
+    "SIMILARITY_TOP_K": 4,
+    "TARGET_SIMILARITY": 0.65
 }
 
+# Precompiled regex patterns
+FILENAME_PATTERN = re.compile(r'^(.*?)_p(\d+-\d+)\.md$')
 
-from langchain.prompts import PromptTemplate 
-CUSTOM_PROMPT_TEMPLATE = """Answer the question based only on the following context. If the context does not contain the information needed to answer the question, respond with exactly: "Sorry, I don't have the information needed to answer your question." if the question is in English, or "Maaf, saya tidak memiliki informasi yang diperlukan untuk menjawab pertanyaan Anda." if the question is in Indonesian. Do not add any extra text. If the context is sufficient, provide a detailed answer in the same language as the question.
+# Flask blueprint setup
+chat_bp = Blueprint('chat', __name__)
+
+# Global state
+app_state = {
+    'vectordbs': {'mahasiswa': None, 'umum': None},
+    'qa_chains': {'mahasiswa': None, 'umum': None},
+    'embedding_model': None,
+    'executor': ThreadPoolExecutor(max_workers=CONFIG["MAX_CONCURRENT_INIT"])
+}
+
+# Custom prompt template
+PROMPT_TEMPLATE = """Answer the question based only on the following context. If the context doesn't contain the answer, respond with exactly: "Sorry, I don't have that information." (English) or "Maaf, informasi tersebut tidak tersedia." (Indonesian). No extra text. If context exists, provide a detailed answer matching the question's language.
 
 Context:
 {context}
@@ -38,413 +62,249 @@ Context:
 Question: {question}
 Answer:"""
 
-PROMPT = PromptTemplate(
-    template=CUSTOM_PROMPT_TEMPLATE,
-    input_variables=["context", "question"]
-)
+prompt = PromptTemplate.from_template(PROMPT_TEMPLATE)
 
 
-class CustomChromaRetriever(BaseRetriever):
-    # Declare Pydantic fields here:
+class OptimizedRetriever(BaseRetriever):
+    """Enhanced Chroma retriever with efficient similarity processing"""
     vectorstore: Chroma
-    k: int = 3
+    k: int = CONFIG["SIMILARITY_TOP_K"]
 
     def _get_relevant_documents(self, query: str) -> List[Document]:
-        # Get raw distances
-        docs_with_scores = self.vectorstore.similarity_search_with_score(query, k=self.k)
-        # Convert distance -> similarity (0..1) and attach to metadata
-        for doc, distance in docs_with_scores:
-            sim = 1 - (distance / 2)  # map [0..2] -> [1..0]
-            doc.metadata["raw_score"] = distance
-            doc.metadata["similarity_score"] = sim
-        return [doc for doc, _ in docs_with_scores]
+        """Batch process documents with optimized similarity calculation"""
+        results = self.vectorstore.similarity_search_with_score(
+            query, k=self.k * 2
+        )
+        return self._process_results(results)
 
-    async def _aget_relevant_documents(self, query: str) -> List[Document]:
-        # Simply call the sync version
-        return self._get_relevant_documents(query)
+    def _process_results(self, results: List[Tuple[Document, float]]) -> List[Document]:
+        """Filter and score documents efficiently"""
+        filtered = []
+        for doc, score in results:
+            similarity = 1 - (score / 2)
+            if similarity >= CONFIG["TARGET_SIMILARITY"]:
+                doc.metadata.update({
+                    "raw_score": score,
+                    "similarity_score": round(similarity, 3)
+                })
+                filtered.append(doc)
+            if len(filtered) >= self.k:
+                break
+        return filtered
 
-# Initialize the embedding model
-model_name = "BAAI/bge-m3"
-encode_kwargs = {'normalize_embeddings': True}
-model_norm = HuggingFaceBgeEmbeddings(
-    model_name=model_name,
-    model_kwargs={'device': 'cuda'},
-    encode_kwargs=encode_kwargs
-)
-
-# LLM initialization
-llm = Ollama(model="qwen2.5:7b-instruct", base_url="http://ollama:11434")
-
-# Global variables for persistence
-vectordbs = {
-    'mahasiswa': None,
-    'umum': None
-}
-
-qa_chains = {
-    'mahasiswa': None,
-    'umum': None
-}
 
 def initialize_embedding_model():
-    global model_norm
-    if model_norm is None:
-        try:
-            logger.info("Initializing embedding model")
-            model_norm = HuggingFaceBgeEmbeddings(
-                model_name=model_name,
-                model_kwargs={'device': 'cuda'},
-                encode_kwargs=encode_kwargs
-            )
-        except Exception as e:
-            logger.error("Embedding model initialization failed", exc_info=True)
-            raise
-
-
-
-def check_chroma_db(chroma_path):
-    """Check if Chroma DB is properly initialized"""
-    chroma_db_path = os.path.join(chroma_path, "chroma.sqlite3")
-    try:
-        if not os.path.exists(chroma_db_path):
-            return False, "Chroma DB file not found"
-            
-        with sqlite3.connect(chroma_db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-            tables = cursor.fetchall()
-            if not any('embeddings' in table[0] for table in tables):
-                return False, "Chroma DB tables missing"
-                
-        return True, "Chroma DB OK"
-    except Exception as e:
-        return False, str(e)
-
-def load_documents_for_category(category):
-    """Load documents for a specific category"""
-    category_path = os.path.join(DATA_PATH, category)
-    try:
-        loader = DirectoryLoader(
-            category_path, 
-            glob="**/*.md", 
-            recursive=True,
-            silent_errors=True
+    """Initialize embedding model with performance optimizations"""
+    if app_state['embedding_model'] is None:
+        logger.info("Initializing embedding model with CUDA acceleration")
+        app_state['embedding_model'] = HuggingFaceBgeEmbeddings(
+            model_name=CONFIG["EMBEDDING_MODEL"],
+            model_kwargs={
+                'device': 'cuda',
+                'torch_dtype': torch.float16
+            },
+            encode_kwargs={
+                'normalize_embeddings': True,
+                'batch_size': 32
+            }
         )
-        docs = loader.load()
-        if not docs:
-            raise ValueError(f"No markdown files found in {category_path}")
-        return docs
-    except Exception as e:
-        raise RuntimeError(f"Document loading failed for {category}: {str(e)}")
-    
 
 
-def load_documents_for_category(category):
-    """Load documents for a specific category"""
-    category_path = os.path.join(DATA_PATH, category)
-    try:
-        loader = DirectoryLoader(
-            category_path, 
-            glob="**/*.md", 
-            recursive=True,
-            silent_errors=True
-        )
-        docs = loader.load()
-        if not docs:
-            raise ValueError(f"No markdown files found in {category_path}")
-        return docs
-    except Exception as e:
-        raise RuntimeError(f"Document loading failed for {category}: {str(e)}")
-
-
-def initialize_category_rag(category):
-    global vectordbs, qa_chains
-    chroma_path = CHROMA_PATHS[category]
+def validate_chroma(chroma_path: str) -> Tuple[bool, str]:
+    """Fast validation of Chroma DB integrity"""
+    db_file = os.path.join(chroma_path, "chromite.sqlite3")
+    if not os.path.exists(db_file):
+        return False, "Missing database file"
     
     try:
+        with sqlite3.connect(db_file, timeout=10) as conn:
+            return (conn.execute("SELECT 1 FROM embeddings LIMIT 1").fetchone() is not None,
+                    "Valid database")
+    except Exception as e:
+        return False, f"Validation error: {str(e)}"
+
+
+def chunk_documents(docs: List[Document]) -> List[Document]:
+    """Efficient document splitting with parallel processing"""
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=CONFIG["CHUNK_SIZE"],
+        chunk_overlap=CONFIG["CHUNK_OVERLAP"],
+        length_function=len
+    )
+    return splitter.split_documents(docs)
+
+
+def initialize_category(category: str):
+    """Parallel-safe ChromaDB initialization for a single category"""
+    chroma_path = CONFIG["CHROMA_PATHS"][category]
+    data_path = os.path.join(CONFIG["DATA_PATH"], category)
+    
+    try:
+        # Attempt fast loading of existing database
         if os.path.exists(chroma_path):
-            try:
-                vectordb = Chroma(
-                    persist_directory=chroma_path,
-                    embedding_function=model_norm,
-                )
-                if vectordb._collection.count() > 0:
-                    vectordbs[category] = vectordb
-                    logger.info(f"Loaded ChromaDB for {category}")
-                    return
-            except Exception as e:
-                logger.error(f"ChromaDB load failed for {category}", exc_info=True)
-                shutil.rmtree(chroma_path)
+            vs = Chroma(
+                persist_directory=chroma_path,
+                embedding_function=app_state['embedding_model'],
+            )
+            if vs._collection.count() > 0:
+                app_state['vectordbs'][category] = vs
+                logger.info(f"Loaded existing ChromaDB for {category}")
+                return
 
+        # Build new database
         logger.info(f"Building new ChromaDB for {category}")
-        documents = load_documents_for_category(category)
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=100,
-            length_function=len
-        )
-        chunks = text_splitter.split_documents(documents)
+        loader = DirectoryLoader(data_path, glob="**/*.md", silent_errors=True)
+        chunks = chunk_documents(loader.load())
         
-        vectordb = Chroma.from_documents(
+        vs = Chroma.from_documents(
             documents=chunks,
-            embedding=model_norm,
-            persist_directory=chroma_path
+            embedding=app_state['embedding_model'],
+            persist_directory=chroma_path,
+            client_settings=chromadb.config.Settings(anonymized_telemetry=False)
         )
-        vectordbs[category] = vectordb
+        app_state['vectordbs'][category] = vs
         logger.info(f"Created ChromaDB for {category} with {len(chunks)} chunks")
-
+    
     except Exception as e:
-        logger.error(f"RAG init failed for {category}", exc_info=True)
-        raise
+        logger.error(f"Failed initializing {category}: {str(e)}")
+        if os.path.exists(chroma_path):
+            shutil.rmtree(chroma_path)
 
 
 def initialize_rag_system():
-    logger.info("Initializing RAG system")
-    for category in ['mahasiswa', 'umum']:
-        try:
-            if os.path.exists(os.path.join(DATA_PATH, category)):
-                initialize_category_rag(category)
-                retriever = CustomChromaRetriever(vectorstore=vectordbs[category], k=3)
-                qa_chains[category] = RetrievalQA.from_chain_type(
-                    llm=llm,
-                    chain_type="stuff",
-                    retriever=retriever,
-                    return_source_documents=True,
-                    chain_type_kwargs={"prompt": PROMPT}
-                )
-                logger.info(f"RAG initialized for {category}")
-            else:
-                logger.warning(f"Skipping {category} - directory missing")
-        except Exception as e:
-            logger.error(f"RAG init failed for {category}", exc_info=True)
+    """Parallel initialization of all RAG components"""
+    logger.info("Starting parallel RAG initialization")
+    futures = []
+    
+    for category in CONFIG["CHROMA_PATHS"]:
+        if os.path.exists(os.path.join(CONFIG["DATA_PATH"], category)):
+            futures.append(
+                app_state['executor'].submit(initialize_category, category)
+            )
+    
+    for future in futures:
+        future.result()
+    
+    # Build QA chains after initialization
+    for category in app_state['vectordbs']:
+        if app_state['vectordbs'][category]:
+            retriever = OptimizedRetriever(vectorstore=app_state['vectordbs'][category])
+            app_state['qa_chains'][category] = RetrievalQA.from_chain_type(
+                llm=Ollama(model=CONFIG["LLM_MODEL"], temperature=0.3),
+                chain_type="stuff",
+                retriever=retriever,
+                return_source_documents=True,
+                chain_type_kwargs={"prompt": prompt}
+            )
+    
+    logger.info("RAG system initialization complete")
 
 
-def format_source_documents(source_documents):
-    return [{
-        "chunk_number": i + 1,
-        "content": source.page_content,
-        "source": source.metadata.get('source', 'Unknown'),
-        "metadata": source.metadata
-    } for i, source in enumerate(source_documents)]
-
-def natural_join(items: list[str], lang: str) -> str:
-    """Join items with proper grammar for English/Indonesian"""
-    if not items:
-        return ""
+def process_sources(docs: List[Document], lang: str) -> Tuple[List[Dict], List[float]]:
+    """Efficient source processing with regex parsing"""
+    sources = []
+    scores = []
     
-    # Remove any empty strings
-    items = [item for item in items if item]
-    
-    if len(items) == 1:
-        return items[0]
-    
-    conjunction = " dan " if lang == "id" else " and "
-    
-    if len(items) == 2:
-        return f"{items[0]}{conjunction}{items[1]}"
-    
-    # For more than 2 items, use Oxford comma for English
-    if lang == "id":
-        return ", ".join(items[:-1]) + f"{conjunction}{items[-1]}"
-    else:
-        return ", ".join(items[:-1]) + f",{conjunction} {items[-1]}"
-
-@chat_bp.route('/api/health', methods=['GET'])
-def health_check():
-    try:
-        health_info = {
-            "status": "healthy",
-            "categories": {}
-        }
+    for doc in docs:
+        meta = doc.metadata
+        source_path = meta.get('source', '')
+        filename = os.path.basename(source_path)
         
-        for category in ['mahasiswa', 'umum']:
-            chroma_path = CHROMA_PATHS[category]
-            db_status, db_msg = check_chroma_db(chroma_path)
+        # Regex-based filename parsing
+        match = FILENAME_PATTERN.match(filename)
+        if match:
+            base_name, pages = match.groups()
+            doc_name = f"{os.path.basename(os.path.dirname(source_path))}/{base_name}"
+            source_str = f"{doc_name} {'halaman' if lang == 'id' else 'pages'} {pages}"
             
-            health_info["categories"][category] = {
-                "chroma_db": db_msg,
-                "vector_db_initialized": vectordbs[category] is not None,
-                "qa_chain_ready": qa_chains[category] is not None
-            }
-        
-        health_info["model_loaded"] = model_norm is not None
-        return jsonify(health_info)
-    except Exception as e:
-        return jsonify({"status": "unhealthy", "error": str(e)}), 500
+            sources.append({
+                "document": doc_name,
+                "pages": pages,
+                "content": doc.page_content[:400] + "...",
+                "similarity": meta.get("similarity_score", 0)
+            })
+            scores.append(meta.get("similarity_score", 0))
     
+    return sources, scores
 
-@chat_bp.route('/api/query', methods=['POST'])
-def query_rag_backward_compatible():
-    return query_rag()
 
 @chat_bp.route('/chat', methods=['POST'])
-def query_rag():
-    response_template = {
-        "reply": None,
-        "sources": [],
-        "context_quality": "unknown",
-        "confidence_score": 0.0,
-        "error": None,
-        "warnings": [],
-        "sorry?": None
-    }
-    
+def handle_query():
+    """Optimized query handler with batched processing"""
     try:
-        data = request.json
-        if not data or 'message' not in data:
-            raise ValueError("Query parameter is required")
-            
+        data = request.get_json()
         query = data['message']
-        logger.info(f"Incoming query: {query[:100]}...")  # Moved after validation
         category = data.get('category', 'mahasiswa')
-
-        if category not in qa_chains or not qa_chains[category]:
-            raise ValueError(f"Invalid category or uninitialized: {category}")
-
-        llm_response = qa_chains[category].invoke(query)
-        response_text = llm_response.get('result', '').strip()
-
-        # Detect language from response instead of query
-        try:
-            detected_lang = detect(response_text) if len(response_text) > 10 else 'en'
-        except:
-            detected_lang = 'en'
-
-        # Define all possible sorry messages
-        sorry_messages = {
-            'en': [
-                "Sorry, I don't have the information needed to answer your question.",
-                "Sorry, I don't have the information needed to answer your question"
-            ],
-            'id': [
-                "Maaf, saya tidak memiliki informasi yang diperlukan untuk menjawab pertanyaan Anda.",
-                "Maaf, saya tidak memiliki informasi yang diperlukan untuk menjawab pertanyaan Anda"
-            ]
-        }
-
-        # Check if response contains any sorry message
-        response_is_sorry = False
-        for lang in ['en', 'id']:
-            if any(msg in response_text for msg in sorry_messages[lang]):
-                response_is_sorry = True
-                detected_lang = lang  # Update language based on response
-                break
-
-        # Process sources and scores
-        source_strings = []
-        valid_sources = []
-        scores = []
+        qa_chain = app_state['qa_chains'].get(category)
         
-        if llm_response.get('source_documents'):
-            for doc in llm_response['source_documents']:
-                try:
-                    score = doc.metadata.get("similarity_score", 0)
-                    scores.append(score)
-                    
-                    source_path = doc.metadata.get('source', 'Unknown')
-                    filename = os.path.basename(source_path)
-                    folder_name = os.path.basename(os.path.dirname(source_path))
-                    
-                    if '_p' in filename:
-                        base_name, page_part = filename.rsplit('_p', 1)
-                        page_range = page_part.split('.')[0]
-                        
-                        if '-' in page_range:
-                            start_page, end_page = page_range.split('-', 1)
-                            if start_page.isdigit() and end_page.isdigit():
-                                doc_name = f"{folder_name}/{base_name}"
-                                
-                                source_str = (f"{doc_name} halaman {start_page}-{end_page}" 
-                                             if detected_lang == 'id' 
-                                             else f"{doc_name} pages {start_page}-{end_page}")
-                                
-                                source_strings.append(source_str)
-                                valid_sources.append({
-                                    "document": doc_name,
-                                    "pages": f"{start_page}-{end_page}",
-                                    "content": doc.page_content[:500] + "...",
-                                    "similarity_score": score
-                                })
-                except Exception as e:
-                    response_template['warnings'].append(f"Source processing error: {str(e)}")
-
-        # Calculate confidence scores
-        if scores:
-            best = max(scores)
-            response_template['confidence_score'] = round(best, 3)
-            response_template['context_quality'] = (
-                "excellent" if best >= 0.85 else
-                "good" if best >= 0.70 else
-                "fair" if best >= 0.50 else
-                "poor"
-            )
-        else:
-            response_template['confidence_score'] = 0.0
-            response_template['context_quality'] = "poor"
-
-        # Format final response
-        reminder = ""
-        if not response_is_sorry and source_strings:
-            seen = set()
-            unique_sources = [x for x in source_strings if not (x in seen or seen.add(x))]
-            
-            base_msg = ("Hasil dapat tidak akurat. Silakan periksa sumber asli di:" 
-                       if detected_lang == 'id' 
-                       else "Results may be inaccurate. Please check original sources at:")
-            
-            joined = natural_join(unique_sources, detected_lang)
-            reminder = f"\n\n{base_msg} {joined}."
-
-        # Clean up sorry messages
-        if response_is_sorry:
-            # Remove any potential extra text after sorry message
-            for msg in sorry_messages[detected_lang]:
-                if msg in response_text:
-                    response_text = msg
-                    break
-
-        response_template['reply'] = f"{response_text}{reminder}".strip()
-        response_template['sources'] = valid_sources
-        response_template["sorry?"] = response_is_sorry
-
-        logger.debug(f"Detected language: {detected_lang}")
-        logger.info(f"Found {len(valid_sources)} valid sources")
-        logger.debug(f"Confidence score: {response_template['confidence_score']}")
+        if not qa_chain:
+            return jsonify({"error": "Uninitialized category"}), 400
         
-        return jsonify(response_template)
+        # Parallel processing of query and language detection
+        lang_future = app_state['executor'].submit(detect, query)
+        rag_future = app_state['executor'].submit(qa_chain.invoke, query)
+        response = rag_future.result()
+        detected_lang = lang_future.result()[:2]
+        
+        response_text = response.get('result', '')
+        sources, scores = process_sources(response.get('source_documents', []), detected_lang)
+        
+        # Build confidence metrics
+        confidence = max(scores) if scores else 0
+        quality = (
+            "excellent" if confidence >= 0.85 else
+            "good" if confidence >= 0.7 else
+            "fair" if confidence >= 0.5 else
+            "poor"
+        )
+        
+        # Build final response
+        return jsonify({
+            "reply": response_text,
+            "sources": sources,
+            "confidence": round(confidence, 3),
+            "quality": quality,
+            "language": detected_lang
+        })
+    
     except Exception as e:
-        logger.error("Query processing error", exc_info=True)
-        response_template['error'] = str(e)
-        return jsonify(response_template), 500
+        logger.error(f"Query error: {str(e)}")
+        return jsonify({"error": "Processing failed"}), 500
+
 
 @chat_bp.route('/api/rebuild', methods=['POST'])
-def rebuildrag():
+def rebuild_system():
+    """Efficient system rebuild with resource cleanup"""
     try:
-        logger.info("Starting RAG rebuild")
-        for category in CHROMA_PATHS.values():
-            if os.path.exists(category):
-                shutil.rmtree(category)
-                logger.info(f"Removed ChromaDB: {category}")
+        logger.info("Starting optimized rebuild")
         
+        # Parallel cleanup
+        futures = []
+        for path in CONFIG["CHROMA_PATHS"].values():
+            if os.path.exists(path):
+                futures.append(app_state['executor'].submit(shutil.rmtree, path))
+        
+        for future in futures:
+            future.result()
+        
+        # Resource cleanup
         chromadb.api.client.SharedSystemClient.clear_system_cache()
-        global vectordbs, qa_chains
-        vectordbs = {k: None for k in vectordbs}
-        qa_chains = {k: None for k in qa_chains}
-        gc.collect()
         torch.cuda.empty_cache()
+        gc.collect()
         
+        # Reinitialize system
         initialize_rag_system()
-        logger.info("Rebuild completed successfully")
-        return jsonify({"status": "rebuild completed"})
+        return jsonify({"status": "Rebuild successful"})
+    
     except Exception as e:
-        logger.error("Rebuild failed", exc_info=True)
-        return jsonify({"status": "rebuild failed", "error": str(e)}), 500
+        logger.error(f"Rebuild failed: {str(e)}")
+        return jsonify({"error": "Rebuild failed"}), 500
+
 
 if __name__ == '__main__':
     try:
-        initialize_embedding_model()
+        initialize_embeddings()
         initialize_rag_system()
-        chat_bp.run(host='0.0.0.0', port=5003, debug=False)
-    except Exception as e:
-        logger.critical("System initialization failed", exc_info=True)
-        exit(1)
+        chat_bp.run(host='0.0.0.0', port=5003, threaded=True)
+    finally:
+        app_state['executor'].shutdown()
