@@ -349,6 +349,10 @@ const ChatbotPage: React.FC = () => {
     }
     
     try {
+      // Hitung waktu respons
+      const startTime = performance.now();
+      let responseTime = 0;
+
       // Call the Flask backend endpoint
       const response = await fetch(`${FLASK_API_BASE_URL}/api/chat`, { 
         method: 'POST',
@@ -366,11 +370,10 @@ const ChatbotPage: React.FC = () => {
       }
       
       const data = await response.json();
-      
+
       // Hitung waktu respons
-      const startTime = performance.now();
       const endTime = performance.now();
-      const responseTime = Math.round(endTime - startTime);
+      responseTime = Math.round(endTime - startTime);
       
       // Add bot response
       setTimeout(() => {
