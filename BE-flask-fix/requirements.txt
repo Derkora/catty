@@ -1,4 +1,5 @@
 waitress
+cryptography
 requests
 flask
 Flask-CORS

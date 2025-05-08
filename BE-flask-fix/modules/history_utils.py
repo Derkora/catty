@@ -1,8 +1,11 @@
 import os
 import requests
 import logging
+from flask import Blueprint, jsonify
 from datetime import datetime
 
+# Inisialisasi Blueprint dan Logger
+history_bp = Blueprint('history', __name__)
 logger = logging.getLogger(__name__)
 
 # === Strapi Configuration ===
@@ -40,3 +43,7 @@ def save_chat_history(message, response, role, session_id, response_time):
     except Exception as e:
         logger.error(f"Error saving history to Strapi: {e}", exc_info=True)
         return False
+    
+@history_bp.route('/api/health/history', methods=['GET'])
+def health_check_crudit():
+    return jsonify({"status": "ok", "service": "crudit"}), 200

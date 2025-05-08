@@ -21,16 +21,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Create necessary directories
-RUN mkdir -p \
-    data/uploads/markdown/mahasiswa \
-    data/uploads/markdown/umum \
-    data/uploads/original/mahasiswa \
-    data/uploads/original/umum \
-    data/uploads/logs \
-    data/vectorstore/mahasiswa \
-    data/vectorstore/umum
-
 # Copy project files
 COPY . .
 

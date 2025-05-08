@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Chatbot AI + Upload PDF</title>
+  <title>Catty</title>
   <style>
     body {
       font-family: sans-serif;
@@ -241,12 +241,19 @@
       background-color: #b02a37;
     }
 
+    #chat-box div {
+      margin-bottom: 1em;
+      line-height: 1.5;
+    }
+    #chat-box ul {
+      margin-left: 1em;
+    }
     
   </style>
 </head>
 <!-- Potongan HEAD dan BODY di bawah ini hanya mencakup bagian yang berubah -->
 <body>
-  <h1>Draft KMS DTI</h1>
+  <h1>Draft Catty</h1>
 
   <div class="main-container">
     <!-- Kolom Kiri: Chat -->
@@ -265,31 +272,32 @@
       <button onclick="sendMessage()">Kirim</button>
     </div>
 
-    <!-- Kolom Kanan: Upload PDF -->
+    <!-- Kolom Kanan: Upload Dokumen -->
     <div class="right-column">
-      <h3>Upload Dokumen PDF</h3>
+      <h3>Upload Dokumen</h3>
 
       <label for="nama-dokumen">Nama Dokumen:</label>
       <input type="text" id="nama-dokumen" placeholder="Masukkan nama dokumen" />
-      <input type="file" id="pdf-file" accept="application/pdf" />
+      <input type="file" id="file-input" />
 
       <h4>Pilih Jenis Dokumen</h4>
       <div class="select">
         <select id="jenis-dokumen">
           <option value="Dokumen_Umum">Dokumen Umum</option>
           <option value="Dokumen_Mahasiswa">Dokumen Mahasiswa</option>
-        </select>
+        </select>        
       </div>
 
-      <button onclick="uploadPDF()">Upload PDF</button>
+      <button onclick="uploadDokumen()">Upload</button>
 
       <h3>Daftar Dokumen</h3>
       <div id="file-list"></div>
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script>
-    const category = "umum";  // default; bisa dinamis kalau mau
+    const category = "umum";  
 
     // Kirim pesan ke chatbot
     function sendMessage() {
@@ -310,42 +318,55 @@
     
       fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Requested-With": "XMLHttpRequest"  // Header tambahan
+        },
         body: JSON.stringify({ message, role })
       })
         .then(res => res.json())
         .then(data => {
-          const aiTime = new Date().toLocaleTimeString(); // waktu balasan diterima
-          chatBox.innerHTML += `<p><strong>AI</strong> (${aiTime}): ${data.answer}</p>`;
+          const aiTime = new Date().toLocaleTimeString();
+          const markdownHTML = marked.parse(data.answer); // convert markdown to HTML
+          chatBox.innerHTML += `<p><strong>AI</strong> (${aiTime}):</p><div>${markdownHTML}</div>`;
           chatBox.scrollTop = chatBox.scrollHeight;
-        })
+        })        
         .catch(err => console.error("Gagal mengirim pesan:", err));
     }
     
-
-    // Upload dokumen PDF
-    function uploadPDF() {
-      const fileInput = document.getElementById("pdf-file");
+    // Upload dokumen
+    function uploadDokumen() {
+      const fileInput = document.getElementById("file-input");
       const file = fileInput.files[0];
       const jenis = document.getElementById("jenis-dokumen").value;
       const nama = document.getElementById("nama-dokumen").value.trim();
-
-      if (!file || !nama) return alert("Isi nama dokumen dan pilih file PDF terlebih dahulu!");
-
+  
+      if (!file || !nama) return alert("Isi nama dokumen dan pilih file terlebih dahulu!");
+  
       const formData = new FormData();
       formData.append("file", file);
       formData.append("jenisDokumen", jenis);
       formData.append("namaDokumen", nama);
-
-      console.log("Mengunggah file:", file.name);
-
-      fetch("/api/convert", {
+  
+      const isPDF = file.name.toLowerCase().endsWith('.pdf');
+      const endpoint = isPDF ? "/api/convert" : "/api/upload";
+  
+      console.log(`Mengunggah ke ${endpoint}:`, file.name);
+  
+      fetch(endpoint, {
         method: "POST",
+        headers: {
+          "X-Requested-With": "XMLHttpRequest"  // Header tambahan
+        },
         body: formData
       })
-        .then(res => res.json())
+        .then(async res => {
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Terjadi kesalahan");
+          return data;
+        })
         .then(data => {
-          alert(data.message);
+          alert(data.message || "Upload berhasil!");
           fileInput.value = "";
           document.getElementById("nama-dokumen").value = "";
           loadFileList();
@@ -355,46 +376,73 @@
           alert("Upload gagal");
         });
     }
-
+  
     // Load daftar file
     function loadFileList() {
       const groups = ["umum", "mahasiswa"];
       const fileList = document.getElementById("file-list");
       fileList.innerHTML = "<h3>Daftar File</h3><table border='1' style='width:100%; border-collapse: collapse;'><thead><tr><th>Nama File</th><th>Kategori</th><th>Aksi</th></tr></thead><tbody></tbody></table>";
       const tableBody = fileList.querySelector("tbody");
-    
+  
       groups.forEach(group => {
-        fetch(`/api/files?category=${group}`)
+        fetch(`/api/files?category=${group}`, {
+          method: "GET",
+          headers: {
+            "X-Requested-With": "XMLHttpRequest"  // Header tambahan
+          }
+        })
           .then(res => res.json())
           .then(data => {
-            if (data.length > 0 && data[0].pdfs) {
-              data[0].pdfs.forEach(pdf => {
-                const pdfName = pdf.replace('.pdf', '');
-                const pdfUrl = `/static/uploads/original/${group}/${pdf}`;
-                const row = document.createElement("tr");
-    
-                row.innerHTML = `
-                  <td><a href="${pdfUrl}" target="_blank">${pdf}</a></td>
-                  <td>${group}</td>
-                  <td><button class="delete-btn" onclick="deleteFile('${pdfName}', '${group}')">Hapus</button></td>
-                `;
-    
-                tableBody.appendChild(row);
-              });
+            const allTypes = data.files_by_type || {};
+            for (const [ext, info] of Object.entries(allTypes)) {
+              info.files.forEach(file => {
+                const uuidPart = file.split('_')[1]?.split('.')[0]; // Ambil UUID
+                if (!uuidPart) return;
+              
+                fetch("/api/encrypt", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "X-Requested-With": "XMLHttpRequest"  // Header tambahan
+                  },
+                  body: JSON.stringify({ uuid: uuidPart })
+                })
+                .then(res => res.json())
+                .then(result => {
+                  const token = result.token;
+                  const fileUrl = `/get-file/${token}`;
+                  const fileName = file;
+              
+                  const row = document.createElement("tr");
+                  row.innerHTML = `
+                    <td><a href="${fileUrl}" target="_blank">${fileName}</a></td>
+                    <td>${group}</td>
+                    <td><button class="delete-btn" onclick="deleteFile('${file.split('.').slice(0, -1).join('.')}', '${group}')">Hapus</button></td>
+                  `;
+              
+                  tableBody.appendChild(row);
+                })
+                .catch(err => {
+                  console.error("Gagal mengenkripsi UUID:", err);
+                });
+              });              
             }
           })
           .catch(err => {
             console.error(`Gagal memuat daftar file dari kategori ${group}:`, err);
           });
       });
-    }    
+    }
   
-    // Hapus file/folder
+    // Hapus file
     function deleteFile(folder, group) {
-      console.log("Menghapus folder:", folder, "dari grup:", group);
-    
+      console.log("Menghapus folder/file:", folder, "dari grup:", group);
+  
       fetch(`/api/files/${folder}?category=${group}`, {
-        method: "DELETE"
+        method: "DELETE",
+        headers: {
+          "X-Requested-With": "XMLHttpRequest"  // Header tambahan
+        }
       })
         .then(res => res.json())
         .then(data => {
@@ -405,7 +453,7 @@
           console.error("Gagal menghapus file:", err);
           alert("Penghapusan gagal");
         });
-    }    
+    }
   
     window.onload = loadFileList;
   </script>

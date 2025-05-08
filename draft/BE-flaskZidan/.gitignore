@@ -132,3 +132,4 @@ build
 data/data.db
 
 modules/__pycache__
+__pycache__
