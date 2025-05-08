@@ -28,7 +28,7 @@
     "userType": {
       "type": "enumeration",
       "enum": [
-        "public",
+        "general",
         "mahasiswa"
       ],
       "required": true

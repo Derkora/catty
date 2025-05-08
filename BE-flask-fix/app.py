@@ -140,24 +140,64 @@ API_PROTECTED_ROUTES = [
 
 @app.before_request
 def block_direct_web_access():
+    # Allow all OPTIONS requests to pass through, Flask-CORS will handle them.
+    if request.method == 'OPTIONS':
+        return
+
     if request.path.startswith('/api/') or request.path.startswith('/get-file'):
-        if request.method == 'GET':
+        if request.method == 'GET': # For /get-file/<token> which is GET and doesn't need AJAX headers
             return
-        if request.is_json or request.headers.get('X-Requested-With', '').lower() == 'xmlhttprequest':
+        # Check for AJAX or JSON content type
+        is_json_content = request.content_type and "application/json" in request.content_type.lower()
+        is_ajax_request = request.headers.get('X-Requested-With', '').lower() == 'xmlhttprequest'
+        
+        if is_json_content or is_ajax_request:
             return
+
+        # Allow multipart/form-data (e.g., for file uploads)
         if request.content_type and request.content_type.startswith("multipart/form-data"):
             return
-        if request.method == 'DELETE' and request.headers.get('X-Requested-With', '').lower() == 'xmlhttprequest':
+
+        # Allow DELETE AJAX requests (already covered if is_ajax_request is true, but can be explicit)
+        if request.method == 'DELETE' and is_ajax_request:
             return
-        logger.warning(f"Blocked direct access to API route: {request.path}")
-        return jsonify({'error': 'Not Found'}), 404
+            
+        logger.warning(f"Blocked direct access to API route: {request.path} by {request.method}. Headers: {request.headers}, Content-Type: {request.content_type}")
+        return jsonify({'error': 'Not Found', 'message': 'Direct access to this API route is not permitted under these conditions.'}), 404
 
 
 @app.errorhandler(404)
 def handle_404(e):
-    logger.warning(f"404 Not Found: {request.path}")
-    if request.accept_mimetypes.best == 'application/json':
-        return jsonify({'error': 'Not Found'}), 404
+    # Log everything about the request when a 404 occurs
+    logger.warning(
+        f"404 Not Found: {request.path} from {request.remote_addr}. "
+        f"Method: {request.method}. "
+        f"Headers: {dict(request.headers)}. "
+        f"Accept Mimetypes: {list(request.accept_mimetypes)}. "
+        f"Is JSON: {request.is_json}. "
+        f"Content-Type: {request.content_type}."
+    )
+    
+    is_ajax_request = request.headers.get('X-Requested-With', '').lower() == 'xmlhttprequest'
+    # More robust check for 'application/json' in accept headers
+    accepts_json = any('application/json' in str(mt).lower() for mt in request.accept_mimetypes)
+
+    # If the path starts with /api/, it's very likely an API call that expects JSON
+    if request.path.startswith('/api/'):
+        logger.info(f"Path {request.path} starts with /api/, forcing JSON response for 404.")
+        if hasattr(e, 'response') and e.response is not None and e.response.is_json:
+            logger.info("Original exception had a JSON response, returning that.")
+            return e.response 
+        return jsonify({'error': 'Not Found', 'message': f'The requested API endpoint {request.path} was not found.'}), 404
+
+    if is_ajax_request or accepts_json:
+        logger.info(f"AJAX or JSON accepted for {request.path}, returning JSON 404.")
+        if hasattr(e, 'response') and e.response is not None and e.response.is_json:
+            logger.info("Original exception had a JSON response, returning that.")
+            return e.response
+        return jsonify({'error': 'Not Found', 'message': f'The requested resource {request.path} was not found and AJAX/JSON was preferred.'}), 404
+        
+    logger.info(f"Path {request.path} does not seem to be API/AJAX, rendering HTML 404.")
     return render_template("404.html"), 404
 
 @app.route("/health")

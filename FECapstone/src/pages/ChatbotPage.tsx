@@ -8,7 +8,7 @@ import { Toaster } from '../components/ui/toaster';
 import { useToast } from '../lib/hooks/use-toast';
 import { Bot, User, Send, Brain, Zap, Sparkles, Wand2, LucideIcon, X, Maximize, Minimize, Copy, RefreshCw, Check, HelpCircle, InfoIcon, CheckCircle } from 'lucide-react';
 import './ChatbotPage.css';
-import { FLASK_API_BASE_URL } from '../config'; // Import Flask URL
+import { FLASK_API_BASE_URL, API_BASE_URL } from '../config'; // Import Flask and Strapi URLs
 
 interface Message {
   id: string;
@@ -310,11 +310,12 @@ const ChatbotPage: React.FC = () => {
   const handleSendMessage = async () => {
     if (!inputMessage.trim()) return;
     
+    const currentInputMessage = inputMessage; // Store before clearing
     // Add user message
     const userMessage: Message = {
       id: Date.now().toString(),
       sender: 'user',
-      text: inputMessage,
+      text: currentInputMessage, // Use stored value
       timestamp: new Date(),
     };
     
@@ -357,7 +358,8 @@ const ChatbotPage: React.FC = () => {
       const response = await fetch(`${FLASK_API_BASE_URL}/api/chat`, { 
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
+          "X-Requested-With": "XMLHttpRequest"
         },
         body: JSON.stringify({
           message: inputMessage,
@@ -376,14 +378,14 @@ const ChatbotPage: React.FC = () => {
       responseTime = Math.round(endTime - startTime);
       
       // Add bot response
-      setTimeout(() => {
+      setTimeout(async () => { // Make the callback async
         setIsTyping(false);
         const botResponse: Message = {
           id: Date.now().toString(),
           sender: 'bot',
-          text: data.answer, // Use data.answer as per the HTML example
+          text: data.answer,
           timestamp: new Date(),
-          responseTime: responseTime, // Tambahkan waktu respons
+          responseTime: responseTime, 
         };
         
         const finalMessages = [...updatedMessages, botResponse];
@@ -402,8 +404,61 @@ const ChatbotPage: React.FC = () => {
             return session;
           }));
         }
-      }, 700); // Add a small delay for natural feel
-      
+
+        // Save chat history to Strapi
+        if (isAuthenticated && user && user.id && activeChatId) {
+          const token = localStorage.getItem('token');
+          if (token) {
+            const historyPayload = {
+              data: {
+                message: userMessage.text, // User's original message
+                response: botResponse.text,
+                userType: role,
+                sessionId: activeChatId,
+                responseTime: botResponse.responseTime,
+                timestamp: botResponse.timestamp.toISOString(),
+                users_permissions_user: user.id, // Assuming user.id is the Strapi user ID
+              }
+            };
+
+            try {
+              const historyResponse = await fetch(`${API_BASE_URL}/api/histories`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify(historyPayload),
+              });
+
+              if (!historyResponse.ok) {
+                const errorData = await historyResponse.json();
+                console.error('Failed to save chat history to Strapi:', errorData);
+                toast({
+                  title: "Gagal Menyimpan Riwayat",
+                  description: `Gagal menyimpan riwayat chat ke server: ${errorData.error?.message || historyResponse.statusText}`,
+                  variant: "destructive",
+                });
+              } else {
+                // console.log('Chat history saved to Strapi successfully');
+                // Optionally, show a success toast, but it might be too noisy
+                // toast({
+                //   title: "Riwayat Tersimpan",
+                //   description: "Riwayat chat berhasil disimpan ke server.",
+                //   variant: "default",
+                // });
+              }
+            } catch (strapiError) {
+              console.error('Error saving chat history to Strapi:', strapiError);
+              toast({
+                title: "Kesalahan Jaringan (Riwayat)",
+                description: "Gagal terhubung ke server untuk menyimpan riwayat chat.",
+                variant: "destructive",
+              });
+            }
+          }
+        }
+      }, 700); 
     } catch (error) {
       console.error('Error:', error);
       setIsTyping(false);

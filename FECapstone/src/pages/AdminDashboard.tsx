@@ -20,22 +20,17 @@ import {
   Filter, 
   Eye, 
   Download,
-  LayoutDashboard,
-  Settings,
-  BookOpen,
-  GraduationCap,
-  CalendarDays,
-  LogOut,
+  PlusCircle,
   X,
   User,
-  PlusCircle
+  BookOpen,
+  GraduationCap
 } from 'lucide-react';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import axios from 'axios';
 import { Badge } from '../components/ui/badge';
-import { Link } from 'react-router-dom';
-import { API_TOKEN, API_BASE_URL, FLASK_API_BASE_URL } from '../config'; // Import Flask URL
+import { API_BASE_URL, FLASK_API_BASE_URL } from '../config'; // Import Flask URL
 import {
   Dialog,
   DialogContent,
@@ -45,59 +40,20 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "../components/ui/dialog";
+import { useToast } from "../lib/hooks/use-toast";
 
-interface Document {
-  id: number;
-  documentId: string;
+
+interface FlaskDocument {
+  key: string; 
   namaDokumen: string;
-  jenisDokumen: string;
+  jenisDokumenDisplay: 'Dokumen Umum' | 'Dokumen Mahasiswa';
+  flaskCategory: 'umum' | 'mahasiswa'; 
+  fileUrl: string; 
+  filenameForDelete: string; 
+  fileExtension: string;
   createdAt: string;
-  updatedAt: string;
-  publishedAt: string;
-  fileDokumen: Array<{
-    id: number;
-    documentId: string;
-    name: string;
-    alternativeText: string | null;
-    caption: string | null;
-    width: number;
-    height: number;
-    formats: {
-      thumbnail?: {
-        name: string;
-        hash: string;
-        ext: string;
-        mime: string;
-        path: string | null;
-        width: number;
-        height: number;
-        size: number;
-        sizeInBytes: number;
-        url: string;
-      };
-      medium?: {
-        url: string;
-      };
-      small?: {
-        url: string;
-      };
-      large?: {
-        url: string;
-      };
-    };
-    hash: string;
-    ext: string;
-    mime: string;
-    size: number;
-    url: string;
-    previewUrl: string | null;
-    provider: string;
-    provider_metadata: any;
-    createdAt: string;
-    updatedAt: string;
-    publishedAt: string;
-  }>;
 }
+
 
 interface StrapiHistoryItem {
   id: number;
@@ -141,6 +97,19 @@ interface StrapiResponse<T> {
       total: number;
     };
   };
+  
+}
+interface FilesResponse {
+  files_by_type: {
+    [key: string]: {
+      files: string[];
+      count: number;
+    };
+  };
+}
+interface FileInfo {
+  files: string[];
+  count: number;
 }
 
 interface CollapsibleMessageProps {
@@ -151,6 +120,7 @@ interface CollapsibleMessageProps {
 
 const CollapsibleMessage = ({ text, maxLength = 200, onClick }: CollapsibleMessageProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  if (!text) return null; // Handle null or undefined text
   const shouldTruncate = text.length > maxLength;
 
   const handleClick = () => {
@@ -200,20 +170,21 @@ const CollapsibleMessage = ({ text, maxLength = 200, onClick }: CollapsibleMessa
 };
 
 const AdminDashboard: React.FC = () => {
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [filteredDocuments, setFilteredDocuments] = useState<Document[]>([]);
+  const { toast } = useToast();
+  const [flaskDocuments, setFlaskDocuments] = useState<FlaskDocument[]>([]);
+  const [filteredFlaskDocuments, setFilteredFlaskDocuments] = useState<FlaskDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('documents');
   const [documentForm, setDocumentForm] = useState({
     namaDokumen: '',
-    jenisDokumen: 'Dokumen_Umum',
+    jenisDokumen: 'Dokumen_Umum', // This is used for the form select
   });
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<File[]>([]); // For file input
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('all');
-  const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
+  const [filterType, setFilterType] = useState('all'); // "all", "Dokumen_Umum", "Dokumen_Mahasiswa"
+  const [previewDocument, setPreviewDocument] = useState<FlaskDocument | null>(null); // Changed to FlaskDocument
   const [histories, setHistories] = useState<History[]>([]);
   const [historyFilter, setHistoryFilter] = useState('all'); // 'all', 'public', 'mahasiswa'
   const [historySort, setHistorySort] = useState('newest'); // 'newest', 'oldest'
@@ -227,89 +198,95 @@ const AdminDashboard: React.FC = () => {
   const [historyModalContent, setHistoryModalContent] = useState({ title: '', text: '' }); // State for modal content
 
   useEffect(() => {
-    fetchDocuments();
+    fetchFlaskDocuments(); // Changed from fetchDocuments
     fetchHistories();
     fetchUsers(); // Fetch users on mount
   }, [refreshKey]);
 
   useEffect(() => {
-    if (documents.length > 0) {
-      let filtered = [...documents];
+    if (flaskDocuments.length > 0) {
+      let filtered = [...flaskDocuments];
       
       // Filter by search term
       if (searchTerm) {
         filtered = filtered.filter(doc => 
-          doc?.namaDokumen?.toLowerCase().includes(searchTerm.toLowerCase())
+          doc.namaDokumen.toLowerCase().includes(searchTerm.toLowerCase())
         );
       }
       
-      // Filter by document type
+      // Filter by document type (using jenisDokumenDisplay)
       if (filterType !== 'all') {
         filtered = filtered.filter(doc => 
-          doc?.jenisDokumen === filterType
+          doc.jenisDokumenDisplay === filterType
         );
       }
       
-      setFilteredDocuments(filtered);
+      setFilteredFlaskDocuments(filtered);
     } else {
-      setFilteredDocuments([]);
+      setFilteredFlaskDocuments([]);
     }
-  }, [documents, searchTerm, filterType]);
+  }, [flaskDocuments, searchTerm, filterType]);
 
-  const fetchDocuments = async () => {
+  const fetchFlaskDocuments = async () => {
     setLoading(true);
     try {
-      const groups = ["umum", "mahasiswa"]; // Or match your categories
-      let allDocuments: Document[] = [];
+      const flaskCategories: ('umum' | 'mahasiswa')[] = ["umum", "mahasiswa"];
+      let allFlaskDocs: FlaskDocument[] = [];
       
-      for (const group of groups) {
-        const response = await axios.get(`${FLASK_API_BASE_URL}/api/files?category=${group}`);
+      for (const category of flaskCategories) {
+        const response = await axios.get<FilesResponse>(`${FLASK_API_BASE_URL}/api/files?category=${category}`, {
+          headers: { "X-Requested-With": "XMLHttpRequest" }
+        });
         
-        if (response.data.length > 0 && response.data[0].pdfs) {
-          const docs = response.data[0].pdfs.map((pdf: string) => {
-            const pdfName = pdf.replace('.pdf', '');
-            const pdfUrl = `${FLASK_API_BASE_URL}/static/uploads/original/${group}/${pdf}`;
-            
-            return {
-              id: Math.random(), // You'll need a better ID strategy
-              documentId: pdfName,
-              namaDokumen: pdf,
-              jenisDokumen: group === "umum" ? "Dokumen_Umum" : "Dokumen_Mahasiswa",
-              createdAt: new Date().toISOString(), // You might need to get this from metadata
-              updatedAt: new Date().toISOString(),
-              publishedAt: new Date().toISOString(),
-              fileDokumen: [{
-                id: Math.random(),
-                documentId: pdfName,
-                name: pdf,
-                alternativeText: null,
-                caption: null,
-                width: 0,
-                height: 0,
-                formats: {},
-                hash: "",
-                ext: ".pdf",
-                mime: "application/pdf",
-                size: 0, // You might need to get this from metadata
-                url: pdfUrl,
-                previewUrl: null,
-                provider: "local",
-                provider_metadata: null,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                publishedAt: new Date().toISOString()
-              }]
-            };
-          });
-          
-          allDocuments = [...allDocuments, ...docs];
+        if (response.data && response.data.files_by_type) {
+          for (const [ext, info] of Object.entries<FileInfo>(response.data.files_by_type)) {
+            if (info.files && Array.isArray(info.files)) {
+              for (const filename of info.files) { // filename is like "MyDoc_uuid.pdf"
+                const uuidPart = filename.split('_').pop()?.split('.')[0];
+                if (!uuidPart) {
+                  console.warn(`Could not extract UUID from filename: ${filename}`);
+                  continue;
+                }
+
+                try {
+                  const tokenResponse = await axios.post(
+                    `${FLASK_API_BASE_URL}/api/encrypt`,
+                    { uuid: uuidPart }, // Send as JSON
+                    {
+                      headers: {
+                        "Content-Type": "application/json",
+                        "X-Requested-With": "XMLHttpRequest"
+                      },
+                    }
+                  );
+
+                  const token = tokenResponse.data.token;
+                  const fileUrl = `${FLASK_API_BASE_URL}/get-file/${token}`;
+                  const filenameWithoutExt = filename.substring(0, filename.lastIndexOf('.')) || filename;
+                  
+                  const doc: FlaskDocument = {
+                    key: filename, // Use full filename as key
+                    namaDokumen: filename,
+                    jenisDokumenDisplay: category === "umum" ? "Dokumen Umum" : "Dokumen Mahasiswa",
+                    flaskCategory: category,
+                    fileUrl: fileUrl,
+                    filenameForDelete: filenameWithoutExt, // e.g., "MyDoc_uuid"
+                    fileExtension: ext.startsWith('.') ? ext.substring(1) : ext,
+                    createdAt: new Date().toISOString(), // Flask doesn't provide this, fake it
+                  };
+                  allFlaskDocs.push(doc);
+                } catch (err) {
+                  console.error(`Gagal mengenkripsi UUID untuk file ${filename}:`, err);
+                }
+              }
+            }
+          }
         }
       }
-      
-      setDocuments(allDocuments);
+      setFlaskDocuments(allFlaskDocs);
     } catch (error) {
-      console.error('Error fetching documents:', error);
-      setDocuments([]);
+      console.error('Error fetching Flask documents:', error);
+      setFlaskDocuments([]);
     } finally {
       setLoading(false);
     }
@@ -383,61 +360,102 @@ const AdminDashboard: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-  
+    // shadcn/ui toast doesn't have a persistent loading toast by ID in the same way
+    // We'll show a "processing" toast and then success/error.
+    toast({
+      title: "Proses Unggah",
+      description: "Dokumen sedang diunggah...",
+    });
+
     try {
       if (files.length === 0) {
-        alert('Pilih file terlebih dahulu!');
+        toast({
+          title: "Input Tidak Lengkap",
+          description: "Isi nama dokumen dan pilih file terlebih dahulu!",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
         return;
       }
-  
+
       const formData = new FormData();
-      formData.append("file", files[0]); // Append the file
+      formData.append("file", files[0]);
       formData.append("jenisDokumen", documentForm.jenisDokumen);
       formData.append("namaDokumen", documentForm.namaDokumen);
-  
-      console.log("Mengunggah file:", files[0].name);
-  
-      const response = await axios.post(
-        `${FLASK_API_BASE_URL}/api/convert`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
+
+      const isPDF = files[0].name.toLowerCase().endsWith('.pdf');
+      const endpoint = `${FLASK_API_BASE_URL}${isPDF ? "/api/convert" : "/api/upload"}`;
+
+      console.log(`Mengunggah ke ${endpoint}:`, files[0].name);
+
+      const response = await axios({
+        method: 'post',
+        url: endpoint,
+        data: formData,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'X-Requested-With': 'XMLHttpRequest'
         }
-      );
-  
-      if (response.data.message) {
-        alert(response.data.message);
-        setDocumentForm({ namaDokumen: "", jenisDokumen: "Dokumen_Umum" });
-        setFiles([]);
-        setRefreshKey((prev) => prev + 1);
+      });
+
+      if (response.status !== 200) {
+        throw new Error(response.data.error || "Terjadi kesalahan");
       }
-    } catch (error) {
-      console.error("Error uploading file:", error);
-      alert("Gagal mengunggah file. Silakan coba lagi.");
+
+      toast({
+        title: "Berhasil!",
+        description: response.data.message || "Upload berhasil!",
+        variant: "success",
+      });
+      setDocumentForm({ namaDokumen: "", jenisDokumen: "Dokumen_Umum" });
+      setFiles([]);
+      setRefreshKey(prev => prev + 1);
+    } catch (error: any) {
+      console.error("Gagal upload:", error);
+      toast({
+        title: "Gagal Upload",
+        description: error.response?.data?.error || "Upload gagal. Silakan coba lagi.",
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleDeleteDocument = async (documentId: string, category: string) => {
-    if (window.confirm('Are you sure you want to delete this document?')) {
+  const handleDeleteDocument = async (filenameToDelete: string, flaskCat: 'umum' | 'mahasiswa') => {
+    // For shadcn/ui, confirmation is typically handled by a Dialog component.
+    // We'll use a simple window.confirm for now, then show a toast.
+    // For a more integrated look, you'd replace window.confirm with a Dialog.
+    if (window.confirm(`Yakin ingin menghapus dokumen: ${filenameToDelete}?`)) {
+      toast({
+        title: "Proses Hapus",
+        description: `Menghapus dokumen ${filenameToDelete}...`,
+      });
       try {
-        // Extract the category from the document
-        const categoryMap: Record<string, string> = {
-          'Dokumen_Umum': 'umum',
-          'Dokumen_Mahasiswa': 'mahasiswa'
-        };
+        const response = await axios.delete(
+          `${FLASK_API_BASE_URL}/api/files/${filenameToDelete}?category=${flaskCat}`,
+          {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+          }
+        );
         
-        const mappedCategory = category ? categoryMap[category] : 'umum';
-        
-        await axios.delete(`${FLASK_API_BASE_URL}/api/files/${documentId}?category=${mappedCategory}`);
-        alert('Berhasil dihapus!');
-        setRefreshKey(prev => prev + 1);
-      } catch (error) {
+        if (response.status === 200 && response.data.message === "Berhasil dihapus") {
+          toast({
+            title: "Berhasil!",
+            description: "Dokumen berhasil dihapus.",
+            variant: "success",
+          });
+          setRefreshKey(prev => prev + 1);
+        } else {
+          throw new Error(response.data.error || 'Operasi hapus gagal');
+        }
+      } catch (error: any) {
         console.error('Error deleting document:', error);
-        alert('Penghapusan gagal');
+        toast({
+          title: "Gagal Hapus",
+          description: error.response?.data?.error || error.message || 'Penghapusan gagal. Silakan coba lagi.',
+          variant: "destructive",
+        });
       }
     }
   };
@@ -483,17 +501,29 @@ const AdminDashboard: React.FC = () => {
     const MAHASISWA_ROLE_ID = 3; // Replace with actual ID
 
     if (!token) {
-      alert('Admin token not found. Please log in again.');
+      toast({
+        title: "Error Autentikasi",
+        description: "Admin token not found. Please log in again.",
+        variant: "destructive",
+      });
       setIsCreatingUser(false);
       return;
     }
 
     if (!MAHASISWA_ROLE_ID) {
-        alert('Mahasiswa Role ID is not set. Please configure it in the code.');
-        setIsCreatingUser(false);
-        return;
+      toast({
+        title: "Error Konfigurasi",
+        description: "Mahasiswa Role ID is not set. Please configure it in the code.",
+        variant: "destructive",
+      });
+      setIsCreatingUser(false);
+      return;
     }
 
+    toast({
+      title: "Proses",
+      description: "Menambahkan user mahasiswa...",
+    });
     try {
       const response = await axios.post(
         `${API_BASE_URL}/api/users`,
@@ -513,14 +543,22 @@ const AdminDashboard: React.FC = () => {
       );
 
       console.log('User created:', response.data);
-      alert('User Mahasiswa berhasil ditambahkan!');
+      toast({
+        title: "Berhasil!",
+        description: "User Mahasiswa berhasil ditambahkan!",
+        variant: "success",
+      });
       setNewUser({ username: '', email: '', password: '' });
       setIsAddUserModalOpen(false);
-      // Optionally, refresh the user list here if you implement one
+      fetchUsers(); // Refresh user list
     } catch (error: any) {
       console.error('Error creating user:', error);
       const errorMessage = error.response?.data?.error?.message || 'Gagal menambahkan user. Periksa kembali data atau hubungi administrator.';
-      alert(`Error: ${errorMessage}`);
+      toast({
+        title: "Gagal Membuat User",
+        description: `Error: ${errorMessage}`,
+        variant: "destructive",
+      });
     } finally {
       setIsCreatingUser(false);
     }
@@ -535,16 +573,18 @@ const AdminDashboard: React.FC = () => {
     });
   };
 
-  const formatFileSize = (bytes: number) => {
+  // Simplified formatFileSize as Flask API doesn't provide size directly in /api/files
+  const formatFileSize = (bytes: number | undefined) => {
+    if (typeof bytes !== 'number') return 'N/A';
     if (bytes < 1024) return bytes + ' B';
     else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
     else return (bytes / 1048576).toFixed(1) + ' MB';
   };
 
-  const handleDownloadFile = (url: string, filename: string) => {
-    const fullUrl = `${API_BASE_URL}${url}`;
+  // Updated to handle direct Flask URL
+  const handleDownloadFile = (flaskFileUrl: string, filename: string) => {
     const link = document.createElement('a');
-    link.href = fullUrl;
+    link.href = flaskFileUrl; // flaskFileUrl is already the absolute URL
     link.setAttribute('download', filename);
     document.body.appendChild(link);
     link.click();
@@ -560,7 +600,7 @@ const AdminDashboard: React.FC = () => {
     return historySort === 'newest' ? dateB - dateA : dateA - dateB;
   });
 
-  if (loading && documents.length === 0) {
+  if (loading && flaskDocuments.length === 0) { // Check flaskDocuments
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="flex flex-col items-center">
@@ -575,6 +615,9 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
+      {/* Toaster component from shadcn/ui is usually placed in App.tsx or a root layout component */}
+      {/* For this example, I'm assuming it's already globally available. */}
+      {/* If not, you would need to add <ToastProvider><ToastViewport /></ToastProvider> or <Toaster /> here or in App.tsx */}
       <Header />
       
       <div className="pt-16 flex-grow">
@@ -610,7 +653,7 @@ const AdminDashboard: React.FC = () => {
                 <div className="flex justify-between items-center">
                   <div>
                     <p className="text-sm font-medium text-slate-500">Total Dokumen</p>
-                    <h3 className="text-2xl font-bold text-slate-800 mt-1">{documents.length}</h3>
+                    <h3 className="text-2xl font-bold text-slate-800 mt-1">{flaskDocuments.length}</h3>
                   </div>
                   <div className="bg-blue-100 p-3 rounded-full">
                     <FileText className="h-6 w-6 text-blue-600" />
@@ -623,7 +666,7 @@ const AdminDashboard: React.FC = () => {
                   <div>
                     <p className="text-sm font-medium text-slate-500">Dokumen Umum</p>
                     <h3 className="text-2xl font-bold text-slate-800 mt-1">
-                      {documents.filter(d => d?.jenisDokumen === 'Dokumen_Umum').length}
+                      {flaskDocuments.filter(d => d.jenisDokumenDisplay === 'Dokumen Umum').length}
                     </h3>
                   </div>
                   <div className="bg-violet-100 p-3 rounded-full">
@@ -635,9 +678,9 @@ const AdminDashboard: React.FC = () => {
               <Card className="p-6 border-l-4 border-l-green-500 hover:shadow-md transition-all">
                 <div className="flex justify-between items-center">
                   <div>
-                    <p className="text-sm font-medium text-slate-500">Dokumen Mata Kuliah</p>
+                    <p className="text-sm font-medium text-slate-500">Dokumen Mahasiswa</p>
                     <h3 className="text-2xl font-bold text-slate-800 mt-1">
-                      {documents.filter(d => d?.jenisDokumen === 'Dokumen_Mahasiswa').length}
+                      {flaskDocuments.filter(d => d.jenisDokumenDisplay === 'Dokumen Mahasiswa').length}
                     </h3>
                   </div>
                   <div className="bg-green-100 p-3 rounded-full">
@@ -686,7 +729,7 @@ const AdminDashboard: React.FC = () => {
                         />
                       </div>
                       <Select
-                        value={filterType}
+                        value={filterType} // "all", "Dokumen_Umum", "Dokumen_Mahasiswa"
                         onValueChange={setFilterType}
                       >
                         <SelectTrigger className="w-full sm:w-48">
@@ -697,8 +740,8 @@ const AdminDashboard: React.FC = () => {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Semua Dokumen</SelectItem>
-                          <SelectItem value="Dokumen_Umum">Umum</SelectItem>
-                          <SelectItem value="Dokumen_Mahasiswa">Mata Kuliah</SelectItem>
+                          <SelectItem value="Dokumen Umum">Umum</SelectItem>
+                          <SelectItem value="Dokumen Mahasiswa">Mahasiswa</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -709,7 +752,7 @@ const AdminDashboard: React.FC = () => {
                       <RefreshCw className="h-8 w-8 mx-auto text-slate-400 animate-spin" />
                       <p className="mt-2 text-slate-500">Memuat data dokumen...</p>
                     </div>
-                  ) : filteredDocuments.length === 0 ? (
+                  ) : filteredFlaskDocuments.length === 0 ? (
                     <div className="py-8 text-center">
                       <FileText className="h-12 w-12 mx-auto text-slate-400 mb-2" />
                       <p className="text-slate-600">Belum ada dokumen tersedia</p>
@@ -721,39 +764,35 @@ const AdminDashboard: React.FC = () => {
                           <TableRow>
                             <TableHead>Nama Dokumen</TableHead>
                             <TableHead>Jenis</TableHead>
-                            <TableHead>Tanggal Dibuat</TableHead>
+                            <TableHead>Tanggal Dibuat (Mock)</TableHead>
                             <TableHead>File</TableHead>
                             <TableHead className="text-right">Aksi</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {filteredDocuments.map(doc => (
-                            <TableRow key={doc.id} className="hover:bg-slate-50/80">
-                              <TableCell className="font-medium">{doc?.namaDokumen || 'Unnamed Document'}</TableCell>
+                          {filteredFlaskDocuments.map(doc => (
+                            <TableRow key={doc.key} className="hover:bg-slate-50/80">
+                              <TableCell className="font-medium">{doc.namaDokumen}</TableCell>
                               <TableCell>
                                 <Badge className={`${
-                                  doc?.jenisDokumen === 'Dokumen_Umum' 
+                                  doc.jenisDokumenDisplay === 'Dokumen Umum' 
                                     ? 'bg-blue-100 text-blue-800 hover:bg-blue-100' 
                                     : 'bg-green-100 text-green-800 hover:bg-green-100'
                                 }`}>
-                                  {doc?.jenisDokumen === 'Dokumen_Umum' ? 'Umum' : 'Mata Kuliah'}
+                                  {doc.jenisDokumenDisplay}
                                 </Badge>
                               </TableCell>
-                              <TableCell>{doc?.createdAt ? formatDate(doc.createdAt) : 'Unknown'}</TableCell>
+                              <TableCell>{formatDate(doc.createdAt)}</TableCell>
                               <TableCell>
-                                {doc?.fileDokumen?.length ? (
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    className="text-xs font-normal"
-                                    onClick={() => setPreviewDocument(doc)}
-                                  >
-                                    <span className="text-sm">{doc.fileDokumen.length} file</span>
-                                    <ChevronDown className="h-4 w-4 ml-1" />
-                                  </Button>
-                                ) : (
-                                  <span className="text-sm text-slate-500">Tidak ada file</span>
-                                )}
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="text-xs font-normal"
+                                  onClick={() => setPreviewDocument(doc)}
+                                >
+                                  <span className="text-sm">Lihat Info</span>
+                                  <ChevronDown className="h-4 w-4 ml-1" />
+                                </Button>
                               </TableCell>
                               <TableCell className="text-right">
                                 <div className="flex justify-end space-x-2">
@@ -765,18 +804,20 @@ const AdminDashboard: React.FC = () => {
                                   >
                                     <Eye className="h-4 w-4 text-blue-600" />
                                   </Button>
+                                  {/* Edit for Flask documents might require more thought, disabled for now */}
                                   <Button 
                                     variant="outline" 
                                     size="sm"
                                     className="h-8 w-8 p-0"
+                                    disabled 
                                   >
-                                    <Edit className="h-4 w-4 text-slate-600" />
+                                    <Edit className="h-4 w-4 text-slate-400" />
                                   </Button>
                                   <Button 
                                     variant="outline" 
                                     size="sm"
                                     className="h-8 w-8 p-0 border-red-200 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
-                                    onClick={() => handleDeleteDocument(doc.documentId, doc.jenisDokumen)}
+                                    onClick={() => handleDeleteDocument(doc.filenameForDelete, doc.flaskCategory)}
                                   >
                                     <Trash2 className="h-4 w-4 text-red-500" />
                                   </Button>
@@ -790,10 +831,10 @@ const AdminDashboard: React.FC = () => {
                   )}
                 </Card>
 
-                {/* Document Preview Modal */}
+                {/* Simplified Document Preview Modal for FlaskDocument */}
                 {previewDocument && (
                   <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-hidden">
+                    <div className="bg-white rounded-lg max-w-xl w-full max-h-[90vh] overflow-hidden">
                       <div className="p-6 border-b border-slate-200 flex justify-between items-center">
                         <h3 className="text-xl font-bold">{previewDocument.namaDokumen}</h3>
                         <Button 
@@ -806,80 +847,48 @@ const AdminDashboard: React.FC = () => {
                         </Button>
                       </div>
                       <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-                        <div className="flex flex-col space-y-2 mb-4">
+                        <div className="space-y-2 mb-4">
+                           <div>
+                            <span className="font-medium">Nama File:</span>{' '}
+                            <span className="text-slate-700">{previewDocument.namaDokumen}</span>
+                          </div>
                           <div className="flex items-center">
                             <span className="font-medium">Jenis Dokumen:</span>{' '}
                             <Badge className={`ml-2 ${
-                              previewDocument.jenisDokumen === 'Dokumen_Umum' 
+                              previewDocument.jenisDokumenDisplay === 'Dokumen Umum' 
                                 ? 'bg-blue-100 text-blue-800' 
                                 : 'bg-green-100 text-green-800'
                             }`}>
-                              {previewDocument.jenisDokumen === 'Dokumen_Umum' ? 'Umum' : 'Mata Kuliah'}
+                              {previewDocument.jenisDokumenDisplay}
                             </Badge>
                           </div>
-                          <div>
-                            <span className="font-medium">ID Dokumen:</span>{' '}
-                            <span className="text-slate-700">{previewDocument.documentId}</span>
+                           <div>
+                            <span className="font-medium">Ekstensi File:</span>{' '}
+                            <span className="text-slate-700 uppercase">{previewDocument.fileExtension}</span>
                           </div>
                           <div>
-                            <span className="font-medium">Tanggal Dibuat:</span>{' '}
-                            <span className="text-slate-700">{formatDate(previewDocument.createdAt)}</span>
-                          </div>
-                          <div>
-                            <span className="font-medium">Terakhir Diperbarui:</span>{' '}
-                            <span className="text-slate-700">{formatDate(previewDocument.updatedAt)}</span>
+                            <span className="font-medium">URL File:</span>{' '}
+                            <a href={previewDocument.fileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline break-all">
+                              {previewDocument.fileUrl}
+                            </a>
                           </div>
                         </div>
-
-                        <h4 className="font-bold text-lg mb-4 border-b pb-2">File</h4>
-                        <div className="space-y-4">
-                          {previewDocument.fileDokumen?.length ? (
-                            previewDocument.fileDokumen.map(file => (
-                              <div key={file.id} className="flex items-center p-3 border rounded-lg hover:bg-slate-50">
-                                <div className="mr-4">
-                                  {file.formats && file.formats.thumbnail && file.formats.thumbnail.url ? (
-                                    <img 
-                                      src={`${API_BASE_URL}${file.formats.thumbnail.url}`} 
-                                      alt={file.name}
-                                      className="w-14 h-14 object-cover rounded border border-slate-200"
-                                    />
-                                  ) : (
-                                    <div className="w-14 h-14 flex items-center justify-center bg-slate-100 rounded border border-slate-200">
-                                      <FileText className="h-8 w-8 text-slate-400" />
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="flex-1">
-                                  <p className="font-medium text-slate-800">{file.name}</p>
-                                  <div className="flex items-center text-xs text-slate-500 mt-1">
-                                    <span>{file.mime}</span>
-                                    <span className="mx-2">•</span>
-                                    <span>{formatFileSize(file.size)}</span>
-                                  </div>
-                                </div>
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  className="ml-4"
-                                  onClick={() => handleDownloadFile(file.url, file.name)}
-                                >
-                                  <Download className="h-4 w-4 mr-2" />
-                                  Download
-                                </Button>
-                              </div>
-                            ))
-                          ) : (
-                            <p className="text-slate-500 text-center py-4">Tidak ada file terlampir</p>
-                          )}
+                        
+                        <div className="mt-6 flex justify-center">
+                          <Button 
+                            variant="outline" 
+                            size="lg"
+                            className="border-blue-500 text-blue-600 hover:bg-blue-50"
+                            onClick={() => handleDownloadFile(previewDocument.fileUrl, previewDocument.namaDokumen)}
+                          >
+                            <Download className="h-5 w-5 mr-2" />
+                            Download File
+                          </Button>
                         </div>
                       </div>
                       <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end space-x-2">
                         <Button variant="outline" onClick={() => setPreviewDocument(null)}>
                           Tutup
-                        </Button>
-                        <Button className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700">
-                          <Edit className="h-4 w-4 mr-2" />
-                          Edit Dokumen
                         </Button>
                       </div>
                     </div>
