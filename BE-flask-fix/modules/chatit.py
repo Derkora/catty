@@ -3,6 +3,7 @@ import shutil
 import logging
 import time # Added for response time calculation
 from flask import Blueprint, request, jsonify
+from threading import Lock 
 from .history_utils import save_chat_history # Import from history_utils.py
 from langchain.vectorstores import Chroma
 from langchain.embeddings import HuggingFaceEmbeddings
@@ -19,78 +20,91 @@ logger = logging.getLogger(__name__)
 UPLOADS_MARKDOWN = "data/uploads/markdown"
 VECTOR_DIR = "data/vectorstores"
 
+vectorstore_lock = Lock()
+
 PROMPT_TEMPLATE_WITH_CONTEXT = {
     "general": PromptTemplate(
         input_variables=["context", "question"],
         template=(
-            "Kamu adalah Catty, Chatbot IT – asisten resmi Departemen Teknologi Informasi ITS.\n"
+            "Kamu adalah Catty, Chatbot IT - asisten AI Departemen Teknologi Informasi ITS.\n"
             "Berikut ini adalah informasi dari dokumen yang relevan:\n"
             "{context}\n\n"
             "User: {question}\n"
-            "AI: Jawablah dalam bahasa Indonesia. Jika pertanyaan berkaitan dengan prestasi atau informasi "
-            "mengenai Departemen Teknologi Informasi ITS, berikan jawaban yang mempromosikan keunggulan dan pencapaiannya. "
-            "Jika tidak ada informasi yang cukup dalam dokumen, jawab dengan \"Maaf, saya tidak menemukan informasi tersebut dalam materi ini.\" "
+            "AI: Jawablah dalam bahasa Indonesia. "
             "Jika pengguna menyampaikan kata-kata kasar atau tidak pantas, tegur dengan sopan. "
             "Bersikap ramah dan informatif dalam setiap jawaban."
+            "Jika tidak ada informasi yang cukup dalam dokumen, jawab dengan \"Maaf, saya tidak menemukan informasi tersebut dalam materi ini.\" "
         )
     ),
     "mahasiswa": PromptTemplate(
         input_variables=["context", "question"],
         template=(
-            "Kamu adalah Catty, Chatbot IT – asisten akademik Departemen Teknologi Informasi ITS.\n"
+            "Kamu adalah Catty, Chatbot IT - asisten AI Departemen Teknologi Informasi ITS.\n"
             "Berikut ini adalah informasi dari materi kuliah dan dokumen pendukung:\n"
             "{context}\n\n"
             "User: {question}\n"
             "AI: Jawablah dengan bahasa Indonesia secara mendalam dan sesuai konteks akademik. "
             "Jika pertanyaan menyangkut mata kuliah, berikan penjelasan yang terstruktur dan mendetail. "
-            "Jika tidak ditemukan informasi dalam dokumen, balas dengan \"Maaf, saya tidak menemukan informasi tersebut dalam materi kuliah ini.\" "
             "Jika ada bahasa yang tidak pantas, berikan teguran secara sopan. "
             "Tampilkan sikap profesional dan membantu sebagai asisten pembelajaran."
+            "Jika tidak ditemukan informasi dalam dokumen, balas dengan \"Maaf, saya tidak menemukan informasi tersebut dalam materi kuliah ini.\" "
         )
     )
 }
 
-
-def rebuild_chroma():
+def rebuild_chroma(group=None):
     try:
-        if os.path.exists(VECTOR_DIR):
-            shutil.rmtree(VECTOR_DIR)
+        with vectorstore_lock:
+            for group_name in ['mahasiswa', 'umum']:
+                if group and group != group_name:
+                    continue  # Skip jika group tidak cocok
 
-        docs = []
-        splitter = MarkdownHeaderTextSplitter(headers_to_split_on=[("#", "judul"), ("##", "subjudul")])
+                group_vector_dir = os.path.join(VECTOR_DIR, group_name)
+                if os.path.exists(group_vector_dir):
+                    shutil.rmtree(group_vector_dir)
 
-        for group in ['mahasiswa', 'umum']:
-            dir_path = os.path.join(UPLOADS_MARKDOWN, group)
-            if not os.path.exists(dir_path):
-                logger.warning(f"Markdown folder not found for group: {group}")
-                continue
+            docs = []
+            splitter = MarkdownHeaderTextSplitter(headers_to_split_on=[("#", "judul"), ("##", "subjudul")])
 
-            loader = DirectoryLoader(dir_path, glob="**/*.md", loader_cls=TextLoader, show_progress=True)
-            for doc in loader.load():
-                filename = os.path.basename(doc.metadata['source'])
-                split_docs = splitter.split_text(doc.page_content)
-                for d in split_docs:
-                    metadata = {"filename": filename, "group": group}
-                    if "_p" in filename:
-                        page_number = ''.join(filter(str.isdigit, filename.rsplit("_p", 1)[-1]))
-                        metadata["page"] = page_number
-                    docs.append(Document(page_content=d.page_content, metadata=metadata))
+            for group_name in ['mahasiswa', 'umum']:
+                if group and group != group_name:
+                    continue  # Skip jika group tidak cocok
 
+                dir_path = os.path.join(UPLOADS_MARKDOWN, group_name)
+                if not os.path.exists(dir_path):
+                    logger.warning(f"Markdown folder not found for group: {group_name}")
+                    continue
 
-        embed = HuggingFaceEmbeddings()
-        Chroma.from_documents(docs, embed, persist_directory=VECTOR_DIR)
-        logger.info("Chroma vectorstore rebuilt successfully.")
+                loader = DirectoryLoader(dir_path, glob="**/*.md", loader_cls=TextLoader, show_progress=True)
+                for doc in loader.load():
+                    filename = os.path.basename(doc.metadata['source'])
+                    split_docs = splitter.split_text(doc.page_content)
+                    for d in split_docs:
+                        metadata = {"filename": filename, "group": group_name}
+                        docs.append(Document(page_content=d.page_content, metadata=metadata))
+
+            embed = HuggingFaceEmbeddings()
+            Chroma.from_documents(docs, embed, persist_directory=os.path.join(VECTOR_DIR, "combined"))
+            logger.info(f"Chroma vectorstore rebuilt successfully for {group_name if group else 'all groups'}.")
 
     except Exception as e:
         logger.error("Error in rebuild_chroma()", exc_info=True)
-        raise e  # Important to propagate the error to the caller
+        raise e
 
 @chat_bp.route('/api/rebuild', methods=['POST'])
 def api_rebuild():
     try:
-        logger.info("Rebuild request received.")
-        rebuild_chroma()
-        return jsonify({"message": "Rebuilt successfully"}), 200
+        data = request.get_json()
+        group = data.get("group")  # Terima parameter 'group'
+        logger.info(f"Rebuild request received for group: {group}")
+
+        # Hanya rebuild grup tertentu jika diberikan
+        if group in ['mahasiswa', 'umum']:
+            rebuild_chroma(group)  # Pass group untuk rebuild sesuai yang dibutuhkan
+        else:
+            rebuild_chroma()  # Jika tidak ada group, rebuild semuanya
+
+        return jsonify({"message": f"Rebuilt successfully for {group}"}), 200
     except Exception as e:
         logger.error("Failed to rebuild vectorstore", exc_info=True)
         return jsonify({"error": str(e)}), 500
@@ -106,17 +120,20 @@ def api_chat():
         start_time = time.time() # Record start time
 
         if not question:
-            logger.warning("Empty question received in /api/chat")
             return jsonify({"answer": "Maaf, pesan tidak boleh kosong."})
 
         logger.info(f"Chat request received | Role: {role} | Question: {question}")
 
         # Setup embedding & vectordb
         embed = HuggingFaceEmbeddings()
-        vectordb = Chroma(persist_directory=VECTOR_DIR, embedding_function=embed)
+        role_group = "mahasiswa" if role == "mahasiswa" else "umum"
+        vector_dir = os.path.join(VECTOR_DIR, role_group)
+        vectordb = Chroma(persist_directory=vector_dir, embedding_function=embed)
 
         # Ambil dokumen terkait
-        retrieved_docs = vectordb.similarity_search(question, k=3)
+        with vectorstore_lock:
+            vectordb = Chroma(persist_directory=vector_dir, embedding_function=embed)
+            retrieved_docs = vectordb.similarity_search(question, k=3)
 
         # Buat konteks dan referensi
         context = ""
@@ -143,15 +160,15 @@ def api_chat():
         prompt = PROMPT_TEMPLATE_WITH_CONTEXT.get(role, PROMPT_TEMPLATE_WITH_CONTEXT["general"])
         llm = Ollama(model="qwen2.5:7b-instruct", base_url="http://host.docker.internal:11434")
 
-        qa_chain = RetrievalQA.from_chain_type(
-            llm=llm,
-            chain_type="stuff",
-            retriever=vectordb.as_retriever(),
-            chain_type_kwargs={"prompt": prompt}
-        )
+        with vectorstore_lock:
+            qa_chain = RetrievalQA.from_chain_type(
+                llm=llm,
+                chain_type="stuff",
+                retriever=vectordb.as_retriever(),
+                chain_type_kwargs={"prompt": prompt}
+            )
+            result = qa_chain.run(question)
 
-        # Proses pertanyaan
-        result = qa_chain.run(question)
         full_answer = result.strip()
 
         # Jika LLM gagal atau jawab kosong/aneh
@@ -182,3 +199,7 @@ def api_chat():
     except Exception as e:
         logger.error("Error during chat processing", exc_info=True)
         return jsonify({"answer": "Maaf, terjadi kesalahan saat memproses pertanyaan. Silakan coba lagi nanti."}), 500
+
+@chat_bp.route('/api/health/chat', methods=['GET'])
+def health_check_chat():
+    return jsonify({"status": "ok", "service": "chat"}), 200
