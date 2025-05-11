@@ -22,74 +22,154 @@ VECTOR_DIR = "data/vectorstores"
 
 vectorstore_lock = Lock()
 
+'''
+Modifikasi prompt banyak -Zidan
+'''
 PROMPT_TEMPLATE_WITH_CONTEXT = {
     "general": PromptTemplate(
         input_variables=["context", "question"],
         template=(
             "Kamu adalah Catty, Chatbot IT - asisten AI Departemen Teknologi Informasi ITS.\n"
-            "Berikut ini adalah informasi dari dokumen yang relevan:\n"
+            "Tugas kamu adalah membantu User menjawab pertanyaan mereka bedasarkan context yang diberikan"
+            "User kamu adalah siswa SMA yang membutuhkan informasi lebih dalam sesuai dengan context."
+            "Berikut ini adalah informasi dari materi kuliah dan dokumen pendukung:\n"
             "{context}\n\n"
             "User: {question}\n"
-            "AI: Jawablah dalam bahasa Indonesia. "
-            "Jika pengguna menyampaikan kata-kata kasar atau tidak pantas, tegur dengan sopan. "
-            "Bersikap ramah dan informatif dalam setiap jawaban."
-            "Jika tidak ada informasi yang cukup dalam dokumen, jawab dengan \"Maaf, saya tidak menemukan informasi tersebut dalam materi ini.\" "
+            "AI: Respon dengan bahasa yang formal dan informatif, namun tetap natural, tidak kaku, dan memiliki nada fun."
+            "Setiap jawaban di jawab dengan struktur yang baik, informatif, dan detail namun tetap natural dan menarik untuk dibaca."
+            "Jika ada bahasa yang tidak pantas, berikan teguran secara sopan."
+            "Selalu respon dengan positif dan menawarkan bantuan untuk User dalam menjawab pertanyaan User terkait Teknologi Informasi."
+            "Respon jawaban bedasarkan dan hanya bedasarkan context saja. Jika jawaban tidak ditemukan di dalam context, respon dengan \"Maaf, saya tidak menemukan informasi tersebut dalam materi kuliah ini.\""
+            "Respon dalam bentuk markdown yang terstruktur dan rapi. Hanya respon dengan isi dari markdownya saja tanpa blok kode. Tanpa menggunakan '```markdown .... ```'"
         )
     ),
     "mahasiswa": PromptTemplate(
         input_variables=["context", "question"],
         template=(
             "Kamu adalah Catty, Chatbot IT - asisten AI Departemen Teknologi Informasi ITS.\n"
+            "Tugas kamu adalah membantu User menjawab pertanyaan mereka bedasarkan context yang diberikan"
+            "User kamu adalah mahasiswa teknologi informasi yang membutuhkan informasi lebih dalam sesuai dengan context."
             "Berikut ini adalah informasi dari materi kuliah dan dokumen pendukung:\n"
             "{context}\n\n"
             "User: {question}\n"
-            "AI: Jawablah dengan bahasa Indonesia secara mendalam dan sesuai konteks akademik. "
-            "Jika pertanyaan menyangkut mata kuliah, berikan penjelasan yang terstruktur dan mendetail. "
-            "Jika ada bahasa yang tidak pantas, berikan teguran secara sopan. "
-            "Tampilkan sikap profesional dan membantu sebagai asisten pembelajaran."
-            "Jika tidak ditemukan informasi dalam dokumen, balas dengan \"Maaf, saya tidak menemukan informasi tersebut dalam materi kuliah ini.\" "
+            "AI: Respon dengan bahasa yang formal dan informatif, namun tetap natural dan tidak kaku."
+            "Setiap jawaban di jawab dengan struktur yang baik, informatif, dan detail namun tetap natural dan menarik untuk dibaca."
+            "Jika ada bahasa yang tidak pantas, berikan teguran secara sopan."
+            "Selalu respon dengan positif dan menawarkan bantuan untuk User dalam menjawab pertanyaan User terkait Teknologi Informasi."
+            "Respon jawaban bedasarkan dan hanya bedasarkan context saja. Jika jawaban tidak ditemukan di dalam context, respon dengan \"Maaf, saya tidak menemukan informasi tersebut dalam materi kuliah ini.\""
+            "Respon dalam bentuk markdown yang terstruktur dan rapi. Hanya respon dengan isi dari markdownya saja tanpa blok kode. Tanpa menggunakan '```markdown .... ```'"
         )
     )
 }
 
+'''
+Di sini juga da perubahan
+1. Menghapus pembuatan db gabungan. Aku rasa itu nggak perlu.
+2. Karena source document itu perlu db yang specific, maka document2nya akan di simpen di masing-masing db. Kalau sebelumnya semuanya disimpan di combined directory.
+
+-Zidan
+'''
 def rebuild_chroma(group=None):
     try:
         with vectorstore_lock:
             for group_name in ['mahasiswa', 'umum']:
                 if group and group != group_name:
-                    continue  # Skip jika group tidak cocok
+                    continue  # Skip non-target groups
 
+                # Remove existing group directory
                 group_vector_dir = os.path.join(VECTOR_DIR, group_name)
                 if os.path.exists(group_vector_dir):
                     shutil.rmtree(group_vector_dir)
 
-            docs = []
-            splitter = MarkdownHeaderTextSplitter(headers_to_split_on=[("#", "judul"), ("##", "subjudul")])
-
-            for group_name in ['mahasiswa', 'umum']:
-                if group and group != group_name:
-                    continue  # Skip jika group tidak cocok
-
+                # Load and process group-specific documents
                 dir_path = os.path.join(UPLOADS_MARKDOWN, group_name)
                 if not os.path.exists(dir_path):
-                    logger.warning(f"Markdown folder not found for group: {group_name}")
+                    logger.warning(f"Markdown folder not found: {group_name}")
                     continue
 
-                loader = DirectoryLoader(dir_path, glob="**/*.md", loader_cls=TextLoader, show_progress=True)
+                loader = DirectoryLoader(dir_path, glob="**/*.md", loader_cls=TextLoader)
+                splitter = MarkdownHeaderTextSplitter(headers_to_split_on=[("#", "judul"), ("##", "subjudul")])
+                docs = []
                 for doc in loader.load():
-                    filename = os.path.basename(doc.metadata['source'])
                     split_docs = splitter.split_text(doc.page_content)
                     for d in split_docs:
-                        metadata = {"filename": filename, "group": group_name}
+                        metadata = {
+                            "filename": os.path.basename(doc.metadata['source']),
+                            "group": group_name
+                        }
                         docs.append(Document(page_content=d.page_content, metadata=metadata))
 
-            embed = HuggingFaceEmbeddings()
-            Chroma.from_documents(docs, embed, persist_directory=os.path.join(VECTOR_DIR, "combined"))
-            logger.info(f"Chroma vectorstore rebuilt successfully for {group_name if group else 'all groups'}.")
+                # Save to group-specific vector store
+                if docs:
+                    embed = HuggingFaceEmbeddings()
+                    Chroma.from_documents(
+                        docs, 
+                        embed, 
+                        persist_directory=group_vector_dir  # Save to group directory
+                    )
+                    logger.info(f"Vectorstore rebuilt for {group_name}")
 
     except Exception as e:
-        logger.error("Error in rebuild_chroma()", exc_info=True)
+        logger.error("Rebuild error", exc_info=True)
         raise e
+    
+def natural_join(items: list[str], lang: str) -> str:
+    """Join items with proper grammar for English/Indonesian"""
+    if not items:
+        return ""
+    
+    # Remove any empty strings
+    items = [item for item in items if item]
+    
+    if len(items) == 1:
+        return items[0]
+    
+    conjunction = " dan " if lang == "id" else " and "
+    
+    if len(items) == 2:
+        return f"{items[0]}{conjunction}{items[1]}"
+    
+    # For more than 2 items, use Oxford comma for English
+    if lang == "id":
+        return ", ".join(items[:-1]) + f"{conjunction}{items[-1]}"
+    else:
+        return ", ".join(items[:-1]) + f",{conjunction} {items[-1]}"
+    
+# Dipakai buat ngereferensi dokumen - Zidan
+def reference(response):
+    source_docs = response.get('source_documents', [])
+    source_strings = []
+
+    for doc in source_docs:  # Iterate directly over source_docs
+        metadata = doc.metadata  # Access metadata from each doc
+        filename = metadata.get("filename", "unknown")
+        
+        # Extract page numbers (if present in filename)
+        if "_p" in filename:
+            try:
+                idfile_name, page_part = filename.rsplit("_p", 1)
+                base_name, id = idfile_name.rsplit("_", 1)
+                page_range = page_part.split(".")[0]  # Remove extension
+                start_page, end_page = page_range.split("-", 1)
+                source_str = f"{base_name} halaman {start_page} sampai halaman {end_page}"
+            except:
+                source_str = filename  # Fallback if parsing fails
+        else:
+            source_str = filename
+
+        source_strings.append(source_str)
+        logger.debug(f"Source doc: {filename}")
+    
+    if source_strings:
+            seen = set()
+            unique_sources = [x for x in source_strings if not (x in seen or seen.add(x))]
+            
+            base_msg = "Hasil dapat tidak akurat. Silakan periksa sumber asli di:" 
+            
+            joined = natural_join(unique_sources, "id")
+            reminder = f"\n\n{base_msg} {joined}."
+
+    return reminder
 
 @chat_bp.route('/api/rebuild', methods=['POST'])
 def api_rebuild():
@@ -117,6 +197,8 @@ def api_chat():
         role = data.get("role", "general")
         session_id = data.get("sessionId", "default") # Extract sessionId
 
+        K = 3 # Berapa banyak chunks yang mau di ambil? - Zidan
+
         start_time = time.time() # Record start time
 
         if not question:
@@ -133,52 +215,38 @@ def api_chat():
         # Ambil dokumen terkait
         with vectorstore_lock:
             vectordb = Chroma(persist_directory=vector_dir, embedding_function=embed)
-            retrieved_docs = vectordb.similarity_search(question, k=3)
-
-        # Buat konteks dan referensi
-        context = ""
-        references = []
-        for doc in retrieved_docs:
-            filename = doc.metadata.get("filename", "unknown")
-            content_preview = doc.page_content[:250].replace('\n', ' ') + "..."
-
-            # Ekstrak nama file PDF dan halaman
-            if "_p" in filename:
-                base_name, page_part = filename.rsplit("_p", 1)
-                page_number = ''.join(filter(str.isdigit, page_part))
-                pdf_name = base_name + ".pdf"
-                page_text = f"halaman {page_number}" if page_number else "halaman tidak diketahui"
-                ref_line = f"- {pdf_name}, {page_text}: {content_preview}"
-            else:
-                pdf_name = filename.replace(".md", ".pdf")
-                ref_line = f"- {pdf_name}, halaman tidak diketahui: {content_preview}"
-
-            references.append(ref_line)
-            context += f"{doc.page_content}\n"
+            retrieved_docs = vectordb.similarity_search(question, k=K)
 
         # Ambil prompt sesuai role
         prompt = PROMPT_TEMPLATE_WITH_CONTEXT.get(role, PROMPT_TEMPLATE_WITH_CONTEXT["general"])
-        llm = Ollama(model="qwen2.5:7b-instruct", base_url="http://host.docker.internal:11434")
+        llm = Ollama(model="qwen2.5:7b-instruct", base_url="http://localhost:11434")
 
+        '''
+        Ada beberapa perubahan di sini:
+        1. qa_chain di tambah return_source_documents agar memberikan dokumen yang digunakan
+        2. Megubah result jadi dict, agar bisa menampilkan data lebih dari satu (kalau pakai .run cuma bisa menampilkan 1 data)(2 data karena ada jawaban dan source documents)
+        3. Reference di ubah menjadi fungsi reference()
+
+        -Zidan
+        '''
         with vectorstore_lock:
             qa_chain = RetrievalQA.from_chain_type(
                 llm=llm,
                 chain_type="stuff",
-                retriever=vectordb.as_retriever(),
+                retriever=vectordb.as_retriever(search_kwargs={"k": K}),
+                return_source_documents=True, 
                 chain_type_kwargs={"prompt": prompt}
             )
-            result = qa_chain.run(question)
+            result = qa_chain.invoke(question)
 
-        full_answer = result.strip()
+        logger.info(f"isi dari reference: {reference(result)}")
+        logger.info(f"isi dari result: {result}")
+
+        full_answer = f"{result["result"]} \n {reference(result)}"
 
         # Jika LLM gagal atau jawab kosong/aneh
-        if not full_answer or full_answer.lower() in ["undefined", "none"]:
+        if not full_answer:
             full_answer = "Maaf, server sedang sibuk dan tidak dapat menjawab saat ini."
-
-        # Tambahkan referensi jika tersedia
-        if references:
-            references = references[:3]  # batasi jumlah referensi
-            full_answer += "\n\nReferensi:\n" + "\n".join(f"• {r}" for r in references)
 
         logger.info("Answer generated successfully.")
 
