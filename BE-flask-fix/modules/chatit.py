@@ -84,8 +84,23 @@ def rebuild_chroma(group=None):
                         docs.append(Document(page_content=d.page_content, metadata=metadata))
 
             embed = HuggingFaceEmbeddings()
-            Chroma.from_documents(docs, embed, persist_directory=os.path.join(VECTOR_DIR, "combined"))
-            logger.info(f"Chroma vectorstore rebuilt successfully for {group_name if group else 'all groups'}.")
+
+            for group_name in ['mahasiswa', 'umum']:
+                if group and group != group_name:
+                    continue
+
+                group_docs = [d for d in docs if d.metadata.get("group") == group_name]
+                if not group_docs:
+                    logger.warning(f"Tidak ada dokumen ditemukan untuk group: {group_name}")
+                    continue
+
+                Chroma.from_documents(
+                    documents=group_docs,
+                    embedding=embed,
+                    persist_directory=os.path.join(VECTOR_DIR, group_name)
+                )
+                logger.info(f"Chroma vectorstore rebuilt for group: {group_name}")
+
 
     except Exception as e:
         logger.error("Error in rebuild_chroma()", exc_info=True)
@@ -158,7 +173,7 @@ def api_chat():
 
         # Ambil prompt sesuai role
         prompt = PROMPT_TEMPLATE_WITH_CONTEXT.get(role, PROMPT_TEMPLATE_WITH_CONTEXT["general"])
-        llm = Ollama(model="qwen2.5:7b-instruct", base_url="http://host.docker.internal:11434")
+        llm = Ollama(model="qwen2.5:7b-instruct", base_url="http://ollama:11434")
 
         with vectorstore_lock:
             qa_chain = RetrievalQA.from_chain_type(
