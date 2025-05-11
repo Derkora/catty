@@ -68,6 +68,8 @@ client.on('message_create', async (message) => {
             message: question,
             role: 'general',
             use_rag: true
+        }, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
         });
 
         const reply = response.data.reply || 'Maaf, tidak ada jawaban.';
@@ -80,4 +82,3 @@ client.on('message_create', async (message) => {
 });
 
 client.initialize();
-

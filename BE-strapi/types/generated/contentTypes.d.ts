@@ -440,8 +440,38 @@ export interface ApiHistoryHistory extends Struct.CollectionTypeSchema {
       'manyToOne',
       'plugin::users-permissions.user'
     >;
-    userType: Schema.Attribute.Enumeration<['public', 'mahasiswa']> &
+    userType: Schema.Attribute.Enumeration<['general', 'mahasiswa']> &
       Schema.Attribute.Required;
+  };
+}
+
+export interface ApiPertanyaanChatbotPertanyaanChatbot
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'pertanyaan_chatbots';
+  info: {
+    displayName: 'PertanyaanChatbot';
+    pluralName: 'pertanyaan-chatbots';
+    singularName: 'pertanyaan-chatbot';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::pertanyaan-chatbot.pertanyaan-chatbot'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    teksPertanyaan: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    urutan: Schema.Attribute.Integer;
   };
 }
 
@@ -957,6 +987,7 @@ declare module '@strapi/strapi' {
       'admin::user': AdminUser;
       'api::dokumen.dokumen': ApiDokumenDokumen;
       'api::history.history': ApiHistoryHistory;
+      'api::pertanyaan-chatbot.pertanyaan-chatbot': ApiPertanyaanChatbotPertanyaanChatbot;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;
       'plugin::i18n.locale': PluginI18NLocale;

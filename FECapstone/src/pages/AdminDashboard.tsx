@@ -6,25 +6,26 @@ import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { 
-  FileUp, 
-  Trash2, 
-  Edit, 
-  RefreshCw, 
-  ChevronDown, 
-  Upload, 
-  FileText, 
-  BarChart, 
-  Users, 
-  Search, 
-  Filter, 
-  Eye, 
+import {
+  FileUp,
+  Trash2,
+  Edit,
+  RefreshCw,
+  ChevronDown,
+  Upload,
+  FileText,
+  BarChart,
+  Users,
+  Search,
+  Filter,
+  Eye,
   Download,
   PlusCircle,
   X,
   User,
   BookOpen,
-  GraduationCap
+  GraduationCap,
+  HelpCircle
 } from 'lucide-react';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
@@ -41,15 +42,26 @@ import {
   DialogTrigger,
 } from "../components/ui/dialog";
 import { useToast } from "../lib/hooks/use-toast";
+// import chatbotQuestionsData from '../../src/data/pertanyaan-chatbots.json'; // Will be removed
 
+
+interface StrapiChatbotQuestion { // Ensuring flat structure based on API response
+  id: number;
+  teksPertanyaan: string;
+  urutan?: number;
+  documentId?: string; // As per your sample response
+  createdAt: string;
+  updatedAt: string;
+  publishedAt?: string;
+}
 
 interface FlaskDocument {
-  key: string; 
+  key: string;
   namaDokumen: string;
   jenisDokumenDisplay: 'Dokumen Umum' | 'Dokumen Mahasiswa';
-  flaskCategory: 'umum' | 'mahasiswa'; 
-  fileUrl: string; 
-  filenameForDelete: string; 
+  flaskCategory: 'umum' | 'mahasiswa';
+  fileUrl: string;
+  filenameForDelete: string;
   fileExtension: string;
   createdAt: string;
 }
@@ -97,7 +109,7 @@ interface StrapiResponse<T> {
       total: number;
     };
   };
-  
+
 }
 interface FilesResponse {
   files_by_type: {
@@ -190,37 +202,151 @@ const AdminDashboard: React.FC = () => {
   const [historySort, setHistorySort] = useState('newest'); // 'newest', 'oldest'
   const [userTypeFilter, setUserTypeFilter] = useState('all');
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
-  const [newUser, setNewUser] = useState({ username: '', email: '', password: '' });
+  const [newUser, setNewUser] = useState({ username: '', email: '', password: '', role: 3 }); // Added role, default to Mahasiswa IT (ID 3)
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [users, setUsers] = useState<any[]>([]); // State for users
   const [loadingUsers, setLoadingUsers] = useState(true); // Loading state for users
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false); // State for history modal
   const [historyModalContent, setHistoryModalContent] = useState({ title: '', text: '' }); // State for modal content
+  const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<any | null>(null); // To store user being edited
+  const [isUpdatingUser, setIsUpdatingUser] = useState(false);
+  const [chatbotQuestions, setChatbotQuestions] = useState<StrapiChatbotQuestion[]>([]);
+  const [isAddQuestionModalOpen, setIsAddQuestionModalOpen] = useState(false);
+  const [isEditQuestionModalOpen, setIsEditQuestionModalOpen] = useState(false);
+  const [newQuestionText, setNewQuestionText] = useState(''); // Renamed from newQuestion
+  const [editingQuestion, setEditingQuestion] = useState<StrapiChatbotQuestion | null>(null); // Will store the whole question object
+  const [currentQuestionText, setCurrentQuestionText] = useState(''); // For the edit input field
+  const [loadingChatbotQuestions, setLoadingChatbotQuestions] = useState(true);
+
+
+  const fetchChatbotQuestions = async () => {
+    setLoadingChatbotQuestions(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get<{ data: StrapiChatbotQuestion[] }>(`${API_BASE_URL}/api/pertanyaan-chatbots`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setChatbotQuestions(response.data.data || []);
+    } catch (error) {
+      console.error('Error fetching chatbot questions:', error);
+      toast({
+        title: "Gagal Memuat Pertanyaan Chatbot",
+        description: "Terjadi kesalahan saat mengambil data pertanyaan dari server.",
+        variant: "destructive",
+      });
+      setChatbotQuestions([]); // Set to empty array on error
+    } finally {
+      setLoadingChatbotQuestions(false);
+    }
+  };
+
+
+  const handleAddQuestion = async () => {
+    if (!newQuestionText.trim()) {
+      toast({ title: "Error", description: "Pertanyaan tidak boleh kosong.", variant: "destructive" });
+      return;
+    }
+    const token = localStorage.getItem('token');
+    try {
+      await axios.post(`${API_BASE_URL}/api/pertanyaan-chatbots`,
+        { data: { teksPertanyaan: newQuestionText.trim() } },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setNewQuestionText('');
+      setIsAddQuestionModalOpen(false);
+      fetchChatbotQuestions(); // Refresh list
+      toast({ title: "Sukses", description: "Pertanyaan berhasil ditambahkan." });
+    } catch (error) {
+      toast({ title: "Error", description: "Gagal menyimpan pertanyaan.", variant: "destructive" });
+      console.error("Failed to save new question:", error);
+    }
+  };
+
+  const handleEditQuestion = async () => {
+    if (!editingQuestion || !currentQuestionText.trim()) {
+      toast({ title: "Error", description: "Pertanyaan tidak boleh kosong.", variant: "destructive" });
+      return;
+    }
+    const token = localStorage.getItem('token');
+    // Assume 'en' is the locale being edited. Adjust if your logic supports multiple locales.
+    // This should ideally match the locale of the 'editingQuestion' if it has one,
+    // or your application's current/default editing locale.
+    const localeToEdit = "en"; // <<< IMPORTANT: Confirm and set your actual target locale
+
+    if (!editingQuestion.documentId) {
+      toast({ title: "Error", description: "Informasi pertanyaan tidak lengkap untuk pembaruan (documentId hilang).", variant: "destructive" });
+      console.error("Cannot edit question, documentId is missing:", editingQuestion);
+      return;
+    }
+
+    try {
+      await axios.put(`${API_BASE_URL}/api/pertanyaan-chatbots/${editingQuestion.documentId}?locale=${localeToEdit}`,
+        { data: { teksPertanyaan: currentQuestionText.trim() } },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setIsEditQuestionModalOpen(false);
+      setEditingQuestion(null);
+      setCurrentQuestionText('');
+      fetchChatbotQuestions(); // Refresh list
+      toast({ title: "Sukses", description: "Pertanyaan berhasil diperbarui." });
+    } catch (error) {
+      toast({ title: "Error", description: "Gagal memperbarui pertanyaan.", variant: "destructive" });
+      console.error("Failed to save edited question:", error);
+    }
+  };
+
+  const handleDeleteQuestion = async (questionToDelete: StrapiChatbotQuestion) => { // Now accepts the full question object
+    if (!questionToDelete || !questionToDelete.documentId) {
+      toast({ title: "Error", description: "Informasi pertanyaan tidak lengkap untuk penghapusan (documentId hilang).", variant: "destructive" });
+      console.error("Cannot delete question, documentId is missing:", questionToDelete);
+      return;
+    }
+
+
+    const localeToDelete = "en"; 
+
+    if (window.confirm(`Yakin ingin menghapus pertanyaan: "${questionToDelete.teksPertanyaan}" (Dokumen ID: ${questionToDelete.documentId}, Locale: ${localeToDelete})?`)) {
+      const token = localStorage.getItem('token');
+      try {
+        // Using documentId in the path and locale as a query parameter
+        await axios.delete(`${API_BASE_URL}/api/pertanyaan-chatbots/${questionToDelete.documentId}?locale=${localeToDelete}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        fetchChatbotQuestions(); // Refresh list
+        toast({ title: "Sukses", description: "Pertanyaan berhasil dihapus." });
+      } catch (error) {
+        toast({ title: "Error", description: "Gagal menghapus pertanyaan.", variant: "destructive" });
+        console.error("Failed to delete question:", error);
+      }
+    }
+  };
 
   useEffect(() => {
-    fetchFlaskDocuments(); // Changed from fetchDocuments
+    fetchFlaskDocuments();
     fetchHistories();
-    fetchUsers(); // Fetch users on mount
+    fetchUsers();
+    fetchChatbotQuestions(); // Fetch questions from Strapi
   }, [refreshKey]);
 
   useEffect(() => {
     if (flaskDocuments.length > 0) {
       let filtered = [...flaskDocuments];
-      
+
       // Filter by search term
       if (searchTerm) {
-        filtered = filtered.filter(doc => 
+        filtered = filtered.filter(doc =>
           doc.namaDokumen.toLowerCase().includes(searchTerm.toLowerCase())
         );
       }
-      
+
       // Filter by document type (using jenisDokumenDisplay)
       if (filterType !== 'all') {
-        filtered = filtered.filter(doc => 
+        filtered = filtered.filter(doc =>
           doc.jenisDokumenDisplay === filterType
         );
       }
-      
+
       setFilteredFlaskDocuments(filtered);
     } else {
       setFilteredFlaskDocuments([]);
@@ -232,12 +358,12 @@ const AdminDashboard: React.FC = () => {
     try {
       const flaskCategories: ('umum' | 'mahasiswa')[] = ["umum", "mahasiswa"];
       let allFlaskDocs: FlaskDocument[] = [];
-      
+
       for (const category of flaskCategories) {
         const response = await axios.get<FilesResponse>(`${FLASK_API_BASE_URL}/api/files?category=${category}`, {
           headers: { "X-Requested-With": "XMLHttpRequest" }
         });
-        
+
         if (response.data && response.data.files_by_type) {
           for (const [ext, info] of Object.entries<FileInfo>(response.data.files_by_type)) {
             if (info.files && Array.isArray(info.files)) {
@@ -263,7 +389,7 @@ const AdminDashboard: React.FC = () => {
                   const token = tokenResponse.data.token;
                   const fileUrl = `${FLASK_API_BASE_URL}/get-file/${token}`;
                   const filenameWithoutExt = filename.substring(0, filename.lastIndexOf('.')) || filename;
-                  
+
                   const doc: FlaskDocument = {
                     key: filename, // Use full filename as key
                     namaDokumen: filename,
@@ -438,7 +564,7 @@ const AdminDashboard: React.FC = () => {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
           }
         );
-        
+
         if (response.status === 200 && response.data.message === "Berhasil dihapus") {
           toast({
             title: "Berhasil!",
@@ -492,13 +618,15 @@ const AdminDashboard: React.FC = () => {
     setNewUser(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleNewUserRoleChange = (value: string) => {
+    setNewUser(prev => ({ ...prev, role: parseInt(value, 10) }));
+  };
+
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsCreatingUser(true);
     const token = localStorage.getItem('token');
-    // IMPORTANT: Replace 'MAHASISWA_ROLE_ID' with the actual ID of the 'mahasiswa' role in your Strapi setup.
-    // You can find this ID in the Strapi Admin Panel (Settings -> Roles -> Mahasiswa).
-    const MAHASISWA_ROLE_ID = 3; // Replace with actual ID
+    // Role ID is now taken from newUser.role state
 
     if (!token) {
       toast({
@@ -510,15 +638,16 @@ const AdminDashboard: React.FC = () => {
       return;
     }
 
-    if (!MAHASISWA_ROLE_ID) {
-      toast({
-        title: "Error Konfigurasi",
-        description: "Mahasiswa Role ID is not set. Please configure it in the code.",
-        variant: "destructive",
-      });
-      setIsCreatingUser(false);
-      return;
-    }
+    // Removed the MAHASISWA_ROLE_ID check as it's now part of newUser state
+    // if (!MAHASISWA_ROLE_ID) { 
+    //   toast({
+    //     title: "Error Konfigurasi",
+    //     description: "Mahasiswa Role ID is not set. Please configure it in the code.",
+    //     variant: "destructive",
+    //   });
+    //   setIsCreatingUser(false);
+    //   return;
+    // }
 
     toast({
       title: "Proses",
@@ -531,7 +660,7 @@ const AdminDashboard: React.FC = () => {
           username: newUser.username,
           email: newUser.email,
           password: newUser.password,
-          role: MAHASISWA_ROLE_ID, // Assign the 'mahasiswa' role
+          role: newUser.role, // Use the role from state
           confirmed: true, // Automatically confirm the user
           blocked: false,
         },
@@ -548,7 +677,7 @@ const AdminDashboard: React.FC = () => {
         description: "User Mahasiswa berhasil ditambahkan!",
         variant: "success",
       });
-      setNewUser({ username: '', email: '', password: '' });
+      setNewUser({ username: '', email: '', password: '', role: 3 }); // Reset with default role
       setIsAddUserModalOpen(false);
       fetchUsers(); // Refresh user list
     } catch (error: any) {
@@ -564,6 +693,126 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handleDeleteUser = async (userId: number) => {
+    if (window.confirm(`Are you sure you want to delete user with ID: ${userId}? This action cannot be undone.`)) {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast({
+          title: "Authentication Error",
+          description: "Admin token not found. Please log in again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Processing",
+        description: `Deleting user ${userId}...`,
+      });
+
+      try {
+        await axios.delete(`${API_BASE_URL}/api/users/${userId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        toast({
+          title: "Success!",
+          description: `User ${userId} has been deleted.`,
+          variant: "success",
+        });
+        fetchUsers(); // Refresh the user list
+      } catch (error: any) {
+        console.error('Error deleting user:', error);
+        const errorMessage = error.response?.data?.error?.message || 'Failed to delete user. Please try again.';
+        toast({
+          title: "Deletion Failed",
+          description: `Error: ${errorMessage}`,
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handleEditUser = (userToEdit: any) => {
+    setEditingUser({
+      id: userToEdit.id,
+      username: userToEdit.username,
+      email: userToEdit.email,
+      role: userToEdit.role?.id || 3, // Default to Mahasiswa IT if role is not set
+      // Password is not pre-filled for security/UX reasons; it's an optional update
+    });
+    setIsEditUserModalOpen(true);
+  };
+
+  const handleUpdateUserInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setEditingUser((prev: any) => ({ ...prev, [name]: value }));
+  };
+
+  const handleUpdateUserRoleChange = (value: string) => {
+    setEditingUser((prev: any) => ({ ...prev, role: parseInt(value, 10) }));
+  };
+
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+
+    setIsUpdatingUser(true);
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+      toast({
+        title: "Authentication Error",
+        description: "Admin token not found. Please log in again.",
+        variant: "destructive",
+      });
+      setIsUpdatingUser(false);
+      return;
+    }
+
+    toast({
+      title: "Processing",
+      description: `Updating user ${editingUser.username}...`,
+    });
+
+    const payload: any = {
+      username: editingUser.username,
+      email: editingUser.email,
+      role: editingUser.role,
+    };
+
+    if (editingUser.password && editingUser.password.trim() !== '') {
+      payload.password = editingUser.password;
+    }
+
+    try {
+      await axios.put(`${API_BASE_URL}/api/users/${editingUser.id}`, payload, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      toast({
+        title: "Success!",
+        description: `User ${editingUser.username} has been updated.`,
+        variant: "success",
+      });
+      setIsEditUserModalOpen(false);
+      setEditingUser(null);
+      fetchUsers(); // Refresh the user list
+    } catch (error: any) {
+      console.error('Error updating user:', error);
+      const errorMessage = error.response?.data?.error?.message || 'Failed to update user. Please try again.';
+      toast({
+        title: "Update Failed",
+        description: `Error: ${errorMessage}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdatingUser(false);
+    }
+  };
+
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('id-ID', {
@@ -573,7 +822,6 @@ const AdminDashboard: React.FC = () => {
     });
   };
 
-  // Simplified formatFileSize as Flask API doesn't provide size directly in /api/files
   const formatFileSize = (bytes: number | undefined) => {
     if (typeof bytes !== 'number') return 'N/A';
     if (bytes < 1024) return bytes + ' B';
@@ -581,7 +829,6 @@ const AdminDashboard: React.FC = () => {
     else return (bytes / 1048576).toFixed(1) + ' MB';
   };
 
-  // Updated to handle direct Flask URL
   const handleDownloadFile = (flaskFileUrl: string, filename: string) => {
     const link = document.createElement('a');
     link.href = flaskFileUrl; // flaskFileUrl is already the absolute URL
@@ -615,13 +862,10 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      {/* Toaster component from shadcn/ui is usually placed in App.tsx or a root layout component */}
-      {/* For this example, I'm assuming it's already globally available. */}
-      {/* If not, you would need to add <ToastProvider><ToastViewport /></ToastProvider> or <Toaster /> here or in App.tsx */}
       <Header />
-      
+
       <div className="pt-16 flex-grow">
-        
+
         {/* Main content */}
         <main className="flex-grow p-6">
           <div className="mx-auto max-w-6xl">
@@ -641,10 +885,7 @@ const AdminDashboard: React.FC = () => {
                   <RefreshCw className="h-4 w-4 mr-2" />
                   Refresh Data
                 </Button>
-                <Button className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white shadow-md transition-all hover:shadow-lg">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Tambah Baru
-                </Button>
+
               </div>
             </div>
 
@@ -660,7 +901,7 @@ const AdminDashboard: React.FC = () => {
                   </div>
                 </div>
               </Card>
-              
+
               <Card className="p-6 border-l-4 border-l-violet-500 hover:shadow-md transition-all">
                 <div className="flex justify-between items-center">
                   <div>
@@ -674,7 +915,7 @@ const AdminDashboard: React.FC = () => {
                   </div>
                 </div>
               </Card>
-              
+
               <Card className="p-6 border-l-4 border-l-green-500 hover:shadow-md transition-all">
                 <div className="flex justify-between items-center">
                   <div>
@@ -690,19 +931,25 @@ const AdminDashboard: React.FC = () => {
               </Card>
             </div>
 
-            <Tabs defaultValue="documents" value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="mb-8 bg-white border border-slate-200 p-1 rounded-lg">
-                <TabsTrigger value="documents" className="rounded-md py-2 px-3">
+            <Tabs defaultValue="documents" value={activeTab} onValueChange={setActiveTab} className="bg-transparent">
+              <TabsList className="mb-8 text-black border border-slate-200 p-1 rounded-lg">
+                <TabsTrigger
+                  value="documents"
+                  className="rounded-md py-2 px-3"
+                >
                   <FileText className="h-4 w-4 mr-2" />
                   Dokumen
                 </TabsTrigger>
-                <TabsTrigger value="upload" className="rounded-md py-2 px-3">
+                <TabsTrigger
+                  value="upload"
+                  className="rounded-md py-2 px-3"
+                >
                   <Upload className="h-4 w-4 mr-2" />
                   Unggah
                 </TabsTrigger>
                 <TabsTrigger value="stats" className="rounded-md py-2 px-3">
                   <BarChart className="h-4 w-4 mr-2" />
-                  Statistik
+                  Pertanyaan Chatbot
                 </TabsTrigger>
                 <TabsTrigger value="users" className="rounded-md py-2 px-3">
                   <Users className="h-4 w-4 mr-2" />
@@ -721,8 +968,8 @@ const AdminDashboard: React.FC = () => {
                     <div className="mt-3 sm:mt-0 flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
                       <div className="relative w-full sm:w-64">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                        <Input 
-                          placeholder="Cari dokumen..." 
+                        <Input
+                          placeholder="Cari dokumen..."
                           className="pl-9"
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
@@ -774,19 +1021,18 @@ const AdminDashboard: React.FC = () => {
                             <TableRow key={doc.key} className="hover:bg-slate-50/80">
                               <TableCell className="font-medium">{doc.namaDokumen}</TableCell>
                               <TableCell>
-                                <Badge className={`${
-                                  doc.jenisDokumenDisplay === 'Dokumen Umum' 
-                                    ? 'bg-blue-100 text-blue-800 hover:bg-blue-100' 
-                                    : 'bg-green-100 text-green-800 hover:bg-green-100'
-                                }`}>
+                                <Badge className={`${doc.jenisDokumenDisplay === 'Dokumen Umum'
+                                  ? 'bg-blue-100 text-blue-800 hover:bg-blue-100'
+                                  : 'bg-green-100 text-green-800 hover:bg-green-100'
+                                  }`}>
                                   {doc.jenisDokumenDisplay}
                                 </Badge>
                               </TableCell>
                               <TableCell>{formatDate(doc.createdAt)}</TableCell>
                               <TableCell>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
                                   className="text-xs font-normal"
                                   onClick={() => setPreviewDocument(doc)}
                                 >
@@ -796,8 +1042,8 @@ const AdminDashboard: React.FC = () => {
                               </TableCell>
                               <TableCell className="text-right">
                                 <div className="flex justify-end space-x-2">
-                                  <Button 
-                                    variant="outline" 
+                                  <Button
+                                    variant="outline"
                                     size="sm"
                                     className="h-8 w-8 p-0"
                                     onClick={() => setPreviewDocument(doc)}
@@ -805,16 +1051,16 @@ const AdminDashboard: React.FC = () => {
                                     <Eye className="h-4 w-4 text-blue-600" />
                                   </Button>
                                   {/* Edit for Flask documents might require more thought, disabled for now */}
-                                  <Button 
-                                    variant="outline" 
+                                  <Button
+                                    variant="outline"
                                     size="sm"
                                     className="h-8 w-8 p-0"
-                                    disabled 
+                                    disabled
                                   >
                                     <Edit className="h-4 w-4 text-slate-400" />
                                   </Button>
-                                  <Button 
-                                    variant="outline" 
+                                  <Button
+                                    variant="outline"
                                     size="sm"
                                     className="h-8 w-8 p-0 border-red-200 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
                                     onClick={() => handleDeleteDocument(doc.filenameForDelete, doc.flaskCategory)}
@@ -837,9 +1083,9 @@ const AdminDashboard: React.FC = () => {
                     <div className="bg-white rounded-lg max-w-xl w-full max-h-[90vh] overflow-hidden">
                       <div className="p-6 border-b border-slate-200 flex justify-between items-center">
                         <h3 className="text-xl font-bold">{previewDocument.namaDokumen}</h3>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           className="h-8 w-8 p-0"
                           onClick={() => setPreviewDocument(null)}
                         >
@@ -848,21 +1094,20 @@ const AdminDashboard: React.FC = () => {
                       </div>
                       <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
                         <div className="space-y-2 mb-4">
-                           <div>
+                          <div>
                             <span className="font-medium">Nama File:</span>{' '}
                             <span className="text-slate-700">{previewDocument.namaDokumen}</span>
                           </div>
                           <div className="flex items-center">
                             <span className="font-medium">Jenis Dokumen:</span>{' '}
-                            <Badge className={`ml-2 ${
-                              previewDocument.jenisDokumenDisplay === 'Dokumen Umum' 
-                                ? 'bg-blue-100 text-blue-800' 
-                                : 'bg-green-100 text-green-800'
-                            }`}>
+                            <Badge className={`ml-2 ${previewDocument.jenisDokumenDisplay === 'Dokumen Umum'
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-green-100 text-green-800'
+                              }`}>
                               {previewDocument.jenisDokumenDisplay}
                             </Badge>
                           </div>
-                           <div>
+                          <div>
                             <span className="font-medium">Ekstensi File:</span>{' '}
                             <span className="text-slate-700 uppercase">{previewDocument.fileExtension}</span>
                           </div>
@@ -873,10 +1118,10 @@ const AdminDashboard: React.FC = () => {
                             </a>
                           </div>
                         </div>
-                        
+
                         <div className="mt-6 flex justify-center">
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             size="lg"
                             className="border-blue-500 text-blue-600 hover:bg-blue-50"
                             onClick={() => handleDownloadFile(previewDocument.fileUrl, previewDocument.namaDokumen)}
@@ -915,8 +1160,8 @@ const AdminDashboard: React.FC = () => {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="jenisDokumen" className="text-sm font-medium">Jenis Dokumen</Label>
-                        <Select 
-                          value={documentForm.jenisDokumen} 
+                        <Select
+                          value={documentForm.jenisDokumen}
                           onValueChange={handleSelectChange}
                         >
                           <SelectTrigger id="jenisDokumen" className="border-slate-300 focus:border-blue-500">
@@ -929,7 +1174,7 @@ const AdminDashboard: React.FC = () => {
                         </Select>
                       </div>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="fileDokumen" className="text-sm font-medium">File Dokumen</Label>
                       <div className="border-2 border-dashed border-slate-200 rounded-lg p-8 hover:bg-slate-50 transition-all">
@@ -997,29 +1242,137 @@ const AdminDashboard: React.FC = () => {
               <TabsContent value="stats">
                 <Card className="p-6 border border-slate-200">
                   <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-bold text-slate-800">Statistik</h2>
-                    <div className="flex items-center space-x-2">
-                      <Select defaultValue="month">
-                        <SelectTrigger className="w-[180px]">
-                          <SelectValue placeholder="Pilih periode" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="week">Minggu Ini</SelectItem>
-                          <SelectItem value="month">Bulan Ini</SelectItem>
-                          <SelectItem value="year">Tahun Ini</SelectItem>
-                          <SelectItem value="all">Semua Waktu</SelectItem>
-                        </SelectContent>
-                      </Select>
+                    <h2 className="text-xl font-bold text-slate-800">Pertanyaan Chatbot</h2>
+                    <div className="flex justify-end">
+                      <Button onClick={() => setIsAddQuestionModalOpen(true)} className='bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700'>
+                        <PlusCircle className="h-4 w-4 mr-2" />
+                        Tambah Pertanyaan
+                      </Button>
                     </div>
                   </div>
-                  <div className="h-80 flex items-center justify-center border rounded-lg bg-slate-50">
-                    <div className="text-center">
-                      <BarChart className="h-12 w-12 mx-auto text-slate-300" />
-                      <p className="mt-2 text-slate-600">Fitur statistik sedang dalam pengembangan</p>
-                    </div>
+                  {/* Chatbot Questions Management UI */}
+                  <div className="space-y-4">
+                    
+                    {loadingChatbotQuestions ? (
+                      <div className="text-center py-8 text-slate-500">
+                        <RefreshCw className="h-8 w-8 mx-auto text-slate-400 animate-spin" />
+                        <p className="mt-2">Memuat pertanyaan chatbot...</p>
+                      </div>
+                    ) : chatbotQuestions.length === 0 ? (
+                      <div className="text-center py-8 text-slate-500">
+                        <HelpCircle className="h-12 w-12 mx-auto text-slate-400 mb-2" />
+                        Belum ada pertanyaan template.
+                      </div>
+                    ) : (
+                      <div className="border rounded-lg overflow-hidden">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>No.</TableHead>
+                              <TableHead>Pertanyaan</TableHead>
+                              <TableHead className="text-right">Aksi</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {chatbotQuestions.map((question, index) => (
+                              <TableRow key={question.id}>
+                                <TableCell>{index + 1}</TableCell>
+                                <TableCell className="whitespace-pre-wrap">{question.teksPertanyaan}</TableCell> {/* Use flat access */}
+                                <TableCell className="text-right space-x-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setEditingQuestion(question);
+                                      setCurrentQuestionText(question.teksPertanyaan); // Use flat access
+                                      setIsEditQuestionModalOpen(true);
+                                    }}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => handleDeleteQuestion(question)} // Pass the whole question object
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
                   </div>
                 </Card>
               </TabsContent>
+
+              {/* Add Question Modal */}
+              <Dialog open={isAddQuestionModalOpen} onOpenChange={(isOpen) => {
+                setIsAddQuestionModalOpen(isOpen);
+                if (!isOpen) setNewQuestionText(''); // Reset on close
+              }}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Edit Pertanyaan Template</DialogTitle>
+                    <DialogDescription>
+                      Ubah pertanyaan template: "{editingQuestion?.teksPertanyaan}" {/* Use flat access */}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="py-4 space-y-2">
+                    <Label htmlFor="newQuestionText">Pertanyaan</Label>
+                    <Input
+                      id="newQuestionText"
+                      value={newQuestionText}
+                      onChange={(e) => setNewQuestionText(e.target.value)}
+                      placeholder="Ketik pertanyaan baru..."
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => {
+                      setIsAddQuestionModalOpen(false);
+                      setNewQuestionText('');
+                    }}>Batal</Button>
+                    <Button onClick={handleAddQuestion}>Simpan</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              {/* Edit Question Modal */}
+              <Dialog open={isEditQuestionModalOpen} onOpenChange={(isOpen) => {
+                setIsEditQuestionModalOpen(isOpen);
+                if (!isOpen) {
+                  setEditingQuestion(null);
+                  setCurrentQuestionText('');
+                }
+              }}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Edit Pertanyaan Template</DialogTitle>
+                    <DialogDescription>
+                      Ubah pertanyaan template: "{editingQuestion?.teksPertanyaan}" {/* Changed to editingQuestion?.teksPertanyaan */}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="py-4 space-y-2">
+                    <Label htmlFor="editQuestionText">Pertanyaan</Label>
+                    <Input
+                      id="editQuestionText"
+                      value={currentQuestionText}
+                      onChange={(e) => setCurrentQuestionText(e.target.value)}
+                      placeholder="Ketik pertanyaan..."
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => {
+                      setIsEditQuestionModalOpen(false);
+                      setEditingQuestion(null);
+                      setCurrentQuestionText('');
+                    }}>Batal</Button>
+                    <Button onClick={handleEditQuestion}>Simpan Perubahan</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
 
               <TabsContent value="users">
                 <Card className="p-6 border border-slate-200">
@@ -1036,7 +1389,7 @@ const AdminDashboard: React.FC = () => {
                         <DialogHeader>
                           <DialogTitle>Tambah Pengguna Mahasiswa Baru</DialogTitle>
                           <DialogDescription>
-                            Masukkan detail untuk pengguna mahasiswa baru. Pastikan role 'Mahasiswa IT' sudah ada di Strapi.
+                            Masukkan detail untuk pengguna mahasiswa/admin baru.
                           </DialogDescription>
                         </DialogHeader>
                         <form onSubmit={handleCreateUser}>
@@ -1085,9 +1438,26 @@ const AdminDashboard: React.FC = () => {
                                 minLength={6}
                               />
                             </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                              <Label htmlFor="role" className="text-right">
+                                Role
+                              </Label>
+                              <Select
+                                value={newUser.role.toString()}
+                                onValueChange={handleNewUserRoleChange}
+                              >
+                                <SelectTrigger className="col-span-3">
+                                  <SelectValue placeholder="Pilih role" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="3">Mahasiswa IT</SelectItem>
+                                  <SelectItem value="4">Admin IT</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
                           </div>
                           <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => setIsAddUserModalOpen(false)}>
+                            <Button className='bg-red-500 text-white hover:bg-red-300' type="button" variant="outline" onClick={() => setIsAddUserModalOpen(false)}>
                               Batal
                             </Button>
                             <Button type="submit" disabled={isCreatingUser} className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700">
@@ -1105,7 +1475,7 @@ const AdminDashboard: React.FC = () => {
                       </DialogContent>
                     </Dialog>
                   </div>
-                  
+
                   {loadingUsers ? (
                     <div className="py-4 text-center">
                       <RefreshCw className="h-8 w-8 mx-auto text-slate-400 animate-spin" />
@@ -1134,25 +1504,22 @@ const AdminDashboard: React.FC = () => {
                               <TableCell className="font-medium">{user.username}</TableCell>
                               <TableCell>{user.email}</TableCell>
                               <TableCell>
-                                <Badge className={`${
-                                  user.role?.type === 'mahasiswa_it'
-                                    ? 'bg-green-100 text-green-800 hover:bg-green-100'
-                                    : user.role?.type === 'admin_it'
-                                      ? 'bg-blue-100 text-blue-800 hover:bg-blue-100'
-                                      : 'bg-slate-100 text-slate-800 hover:bg-slate-100'
-                                }`}>
+                                <Badge className={`${user.role?.type === 'mahasiswa_it'
+                                  ? 'bg-green-100 text-green-800 hover:bg-green-100'
+                                  : user.role?.type === 'admin_it'
+                                    ? 'bg-blue-100 text-blue-800 hover:bg-blue-100'
+                                    : 'bg-slate-100 text-slate-800 hover:bg-slate-100'
+                                  }`}>
                                   {user.role?.name || 'No Role'}
                                 </Badge>
                               </TableCell>
                               <TableCell>
-                                <Badge className={`${
-                                  user.confirmed ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                }`}>
+                                <Badge className={`${user.confirmed ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                  }`}>
                                   {user.confirmed ? 'Confirmed' : 'Unconfirmed'}
                                 </Badge>
-                                <Badge className={`ml-2 ${
-                                  user.blocked ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-                                }`}>
+                                <Badge className={`ml-2 ${user.blocked ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                                  }`}>
                                   {user.blocked ? 'Blocked' : 'Active'}
                                 </Badge>
                               </TableCell>
@@ -1163,7 +1530,7 @@ const AdminDashboard: React.FC = () => {
                                     variant="outline"
                                     size="sm"
                                     className="h-8 w-8 p-0"
-                                    // onClick={() => handleEditUser(user.id)} // Implement edit handler
+                                    onClick={() => handleEditUser(user)}
                                   >
                                     <Edit className="h-4 w-4 text-slate-600" />
                                   </Button>
@@ -1171,7 +1538,7 @@ const AdminDashboard: React.FC = () => {
                                     variant="outline"
                                     size="sm"
                                     className="h-8 w-8 p-0 border-red-200 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
-                                    // onClick={() => handleDeleteUser(user.id)} // Implement delete handler
+                                    onClick={() => handleDeleteUser(user.id)}
                                   >
                                     <Trash2 className="h-4 w-4 text-red-500" />
                                   </Button>
@@ -1190,17 +1557,6 @@ const AdminDashboard: React.FC = () => {
                 <div className="space-y-6">
                   <div className="flex justify-between items-center">
                     <h2 className="text-2xl font-bold text-gray-900">Chat History</h2>
-                    <div className="flex gap-4">
-                      <select
-                        value={userTypeFilter}
-                        onChange={(e) => setUserTypeFilter(e.target.value)}
-                        className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="all">All Users</option>
-                        <option value="public">Public</option>
-                        <option value="mahasiswa">Mahasiswa</option>
-                      </select>
-                    </div>
                   </div>
 
                   <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -1235,11 +1591,10 @@ const AdminDashboard: React.FC = () => {
                                 </div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                  history.userType === 'mahasiswa' 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : 'bg-blue-100 text-blue-800'
-                                }`}>
+                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${history.userType === 'mahasiswa'
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-blue-100 text-blue-800'
+                                  }`}>
                                   {history.userType}
                                 </span>
                               </td>
@@ -1298,6 +1653,98 @@ const AdminDashboard: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit User Modal */}
+      {editingUser && (
+        <Dialog open={isEditUserModalOpen} onOpenChange={setIsEditUserModalOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Edit User: {editingUser.username}</DialogTitle>
+              <DialogDescription>
+                Update the user's details below. Password field is optional.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleUpdateUser}>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-username" className="text-right">
+                    Username
+                  </Label>
+                  <Input
+                    id="edit-username"
+                    name="username"
+                    value={editingUser.username}
+                    onChange={handleUpdateUserInputChange}
+                    className="col-span-3"
+                    required
+                    minLength={3}
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-email" className="text-right">
+                    Email
+                  </Label>
+                  <Input
+                    id="edit-email"
+                    name="email"
+                    type="email"
+                    value={editingUser.email}
+                    onChange={handleUpdateUserInputChange}
+                    className="col-span-3"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-password" className="text-right">
+                    Password
+                  </Label>
+                  <Input
+                    id="edit-password"
+                    name="password"
+                    type="password"
+                    placeholder="Leave blank to keep current"
+                    onChange={handleUpdateUserInputChange} // editingUser.password will be updated here
+                    className="col-span-3"
+                    minLength={6}
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-role" className="text-right">
+                    Role
+                  </Label>
+                  <Select
+                    value={editingUser.role.toString()}
+                    onValueChange={handleUpdateUserRoleChange}
+                  >
+                    <SelectTrigger id="edit-role" className="col-span-3">
+                      <SelectValue placeholder="Pilih role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="3">Mahasiswa IT</SelectItem>
+                      <SelectItem value="4">Admin IT</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button className='bg-red-500 text-white hover:bg-red-300' type="button" variant="outline" onClick={() => { setIsEditUserModalOpen(false); setEditingUser(null); }}>
+                  Batal
+                </Button>
+                <Button type="submit" disabled={isUpdatingUser} className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700">
+                  {isUpdatingUser ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Menyimpan...
+                    </>
+                  ) : (
+                    'Simpan Perubahan'
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
 
       <Footer />
     </div>

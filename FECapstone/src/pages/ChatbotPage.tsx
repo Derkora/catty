@@ -9,6 +9,17 @@ import { useToast } from '../lib/hooks/use-toast';
 import { Bot, User, Send, Brain, Zap, Sparkles, Wand2, LucideIcon, X, Maximize, Minimize, Copy, RefreshCw, Check, HelpCircle, InfoIcon, CheckCircle } from 'lucide-react';
 import './ChatbotPage.css';
 import { FLASK_API_BASE_URL, API_BASE_URL } from '../config'; // Import Flask and Strapi URLs
+// import suggestedQuestions from '../data/pertanyaan-chatbots?populate=*`.json'; // Will be removed
+
+interface StrapiChatbotQuestion { // Updated to actual flat structure
+  id: number;
+  teksPertanyaan: string;
+  urutan?: number | null; // urutan can be null
+  documentId?: string;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt?: string;
+}
 
 interface Message {
   id: string;
@@ -160,19 +171,42 @@ const ChatbotPage: React.FC = () => {
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [user, setUser] = useState<any | null>(null); // Use 'any' or define a StrapiUser interface if needed
-  const [suggestedTopics] = useState([
-    "Apa saja program studi di Departemen Teknologi Informasi?",
-    "Siapa ketua Departemen Teknologi Informasi saat ini?",
-    "Kapan Departemen Teknologi Informasi didirikan?",
-    "Bagaimana prospek kerja lulusan Teknologi Informasi?",
-    "Apa keunggulan Departemen Teknologi Informasi ITS?",
-    "Berapa biaya kuliah per semester di Teknologi Informasi?",
-    "Apa saja laboratorium yang ada di Teknologi Informasi?",
-    "Bagaimana cara mendaftar di Teknologi Informasi ITS?",
-  ]);
+  const [suggestedTopics, setSuggestedTopics] = useState<string[]>([]); // Initialize as empty, will be fetched
+  const [loadingTopics, setLoadingTopics] = useState(true);
   const fullscreenRef = useRef<HTMLDivElement>(null);
 
+  const fetchSuggestedTopicsFromStrapi = async () => {
+    setLoadingTopics(true);
+    try {
+      // Using the endpoint from your feedback and AdminDashboard
+      const response = await fetch(`${API_BASE_URL}/api/pertanyaan-chatbots`);
+      if (!response.ok) {
+        throw new Error(`Network response was not ok: ${response.status}`);
+      }
+      const data: { data: StrapiChatbotQuestion[] } = await response.json();
+      if (data && data.data) {
+        // Sort by 'urutan' attribute, direct access
+        const sortedQuestions = data.data.sort((a, b) => (a.urutan || 0) - (b.urutan || 0));
+        setSuggestedTopics(sortedQuestions.map(q => q.teksPertanyaan)); // Direct access to teksPertanyaan
+      } else {
+        setSuggestedTopics([]);
+      }
+    } catch (error) {
+      console.error("Error fetching suggested topics:", error);
+      setSuggestedTopics([]); // Fallback to empty or could use a default static list
+      toast({
+        title: "Gagal Memuat Topik Saran",
+        description: "Tidak dapat mengambil topik saran dari server.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingTopics(false);
+    }
+  };
+
   useEffect(() => {
+    fetchSuggestedTopicsFromStrapi(); // Fetch topics on mount
+
     // Load user from localStorage
     const token = localStorage.getItem('token');
     const userString = localStorage.getItem('user');

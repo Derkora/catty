@@ -1,0 +1,21 @@
+{
+  "kind": "collectionType",
+  "collectionName": "pertanyaan_chatbots",
+  "info": {
+    "singularName": "pertanyaan-chatbot",
+    "pluralName": "pertanyaan-chatbots",
+    "displayName": "PertanyaanChatbot"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "attributes": {
+    "teksPertanyaan": {
+      "type": "string",
+      "required": true
+    },
+    "urutan": {
+      "type": "integer"
+    }
+  }
+}

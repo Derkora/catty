@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import { Button } from '../components/ui/button';
@@ -104,6 +105,7 @@ const customStyles = `
 `;
 
 const LandingPage: React.FC = () => {
+    const navigate = useNavigate(); // Initialize useNavigate
     const [visibleSection, setVisibleSection] = useState(false);
     
     useEffect(() => {
@@ -178,8 +180,9 @@ const LandingPage: React.FC = () => {
                                     <Button 
                                         size="lg" 
                                         className="rounded-full text-white shadow-lg shadow-blue-700/30 bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 hover:shadow-xl transition-all group"
+                                        onClick={() => navigate('/chatbot')} // Navigate to chatbot page
                                     >
-                                        Pelajari Program Studi
+                                        Akses Chatbot IT (Catty)
                                         <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                                     </Button>
                                 </div>

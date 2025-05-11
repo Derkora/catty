@@ -2,7 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
-import NewsDetail from './pages/NewsDetail';
+// import NewsDetail from './pages/NewsDetail'; // Removed
 import ChatbotPage from './pages/ChatbotPage';
 import './App.css';
 import { Toaster } from './components/ui/toaster';
@@ -88,7 +88,7 @@ function App() {
             </ProtectedRoute>
           } 
         />
-        <Route path="/news/:documentId" element={<NewsDetail />} /> 
+        {/* <Route path="/news/:documentId" element={<NewsDetail />} />  Removed */}
         
         <Route 
           path="/chatbot" 
