@@ -46,7 +46,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: 'Beranda', href: '/', icon: <Home className="h-4 w-4" /> },
   { 
-    label: 'Tanyabot AI', 
+    label: 'Catty AI', 
     href: '/chatbot', 
     icon: <Bot className="h-4 w-4" />,
     highlight: true,

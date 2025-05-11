@@ -219,7 +219,7 @@ def api_chat():
 
         # Ambil prompt sesuai role
         prompt = PROMPT_TEMPLATE_WITH_CONTEXT.get(role, PROMPT_TEMPLATE_WITH_CONTEXT["general"])
-        llm = Ollama(model="qwen2.5:7b-instruct", base_url="http://localhost:11434")
+        llm = Ollama(model="qwen2.5:7b-instruct", base_url="http://host.docker.internal:11434")
 
         '''
         Ada beberapa perubahan di sini:

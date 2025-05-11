@@ -336,7 +336,7 @@ const ChatbotPage: React.FC = () => {
     // Add toast notification
     toast({
       title: "Chat Baru Dibuat",
-      description: "Anda dapat mulai percakapan baru dengan Tanyabot",
+      description: "Anda dapat mulai percakapan baru dengan Catty",
       variant: "default",
     });
   };
@@ -673,17 +673,14 @@ const ChatbotPage: React.FC = () => {
               {/* Main title with custom animations */}
               <div className="text-center mb-8 scale-in" style={{ animationDelay: '0.6s' }}>
                 <h1 className="text-5xl md:text-7xl font-bold text-white tracking-tight mb-4 drop-shadow-lg">
-                  <span className="inline-block transform hover:scale-105 transition-transform">T</span>
+                  <span className="inline-block transform hover:scale-105 transition-transform">C</span>
                   <span className="inline-block transform hover:scale-105 transition-transform">A</span>
-                  <span className="inline-block transform hover:scale-105 transition-transform">N</span>
+                  <span className="inline-block transform hover:scale-105 transition-transform">T</span>
+                  <span className="inline-block transform hover:scale-105 transition-transform">T</span>
                   <span className="inline-block transform hover:scale-105 transition-transform">Y</span>
-                  <span className="inline-block transform hover:scale-105 transition-transform">A</span>
-                  <span className="inline-block transform hover:scale-105 transition-transform">B</span>
-                  <span className="inline-block transform hover:scale-105 transition-transform">O</span>
-                  <span className="inline-block transform hover:scale-105 transition-transform">T</span>
                   <span className="inline-block transform hover:scale-105 transition-transform mx-2"> </span>
                   <span className="inline-block transform hover:scale-105 transition-transform relative">
-                    <span className="bg-gradient-to-r from-blue-300 via-indigo-300 to-violet-300 text-transparent bg-clip-text">IT</span>
+                    <span className="bg-gradient-to-r from-blue-300 via-indigo-300 to-violet-300 text-transparent bg-clip-text">DTI ITS</span>
                     <div className="absolute -bottom-2 left-0 w-full h-1 bg-gradient-to-r from-blue-300 to-violet-300 rounded-full"></div>
                   </span>
                 </h1>
@@ -780,7 +777,7 @@ const ChatbotPage: React.FC = () => {
                   <div className="h-12 w-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl shadow-lg absolute -top-6 -left-6 flex items-center justify-center transform rotate-12">
                     <Bot className="h-6 w-6 text-white" />
                   </div>
-                  <h2 className="text-3xl font-bold text-slate-900 ml-6 pt-2">Fitur <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">Tanyabot ITS</span></h2>
+                  <h2 className="text-3xl font-bold text-slate-900 ml-6 pt-2">Fitur <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">Catty DTI</span></h2>
                   <div className="h-1 w-20 bg-gradient-to-r from-blue-500 to-violet-500 rounded-full mt-2 ml-6"></div>
                 </div>
 
@@ -875,7 +872,7 @@ const ChatbotPage: React.FC = () => {
                   
                   <h3 className="font-bold text-xl mb-3 flex items-center">
                     <Sparkles className="h-5 w-5 mr-2 text-blue-300" />
-                    Kelebihan Tanyabot
+                    Kelebihan Catty DTI
                   </h3>
                   
                   <ul className="space-y-3 relative z-10">
@@ -1014,7 +1011,7 @@ const ChatbotPage: React.FC = () => {
                         <Bot className="h-5 w-5" />
                       </div>
                       <div>
-                        <h3 className="font-bold text-base md:text-lg">Tanyabot ITS</h3>
+                        <h3 className="font-bold text-base md:text-lg">Catty DTI</h3>
                         <p className="text-xs text-blue-100">Asisten Virtual Departemen Teknologi Informasi</p>
                       </div>
                     </div>
@@ -1073,7 +1070,7 @@ const ChatbotPage: React.FC = () => {
                           <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-violet-500 rounded-full mx-auto flex items-center justify-center mb-6 floaty-icon shadow-lg">
                             <Bot className="h-10 w-10 text-white" />
                           </div>
-                          <h2 className="text-2xl font-semibold mb-3 bg-gradient-to-r from-blue-700 to-violet-700 bg-clip-text text-transparent">Selamat Datang di Tanyabot ITS</h2>
+                          <h2 className="text-2xl font-semibold mb-3 bg-gradient-to-r from-blue-700 to-violet-700 bg-clip-text text-transparent">Selamat Datang di Catty DTI</h2>
                           <p className="text-slate-500 max-w-xl mx-auto">Hai! Saya adalah asisten virtual Program Studi Teknologi Informasi ITS. Tanyakan apa saja yang ingin Anda ketahui tentang jurusan kami.</p>
                         </div>
                         
@@ -1155,7 +1152,7 @@ const ChatbotPage: React.FC = () => {
                                 message.sender === 'user' ? 'text-blue-100' : 'text-slate-500'
                               }`}
                             >
-                              {message.sender === 'user' ? 'Kamu' : 'Tanyabot IT'}
+                              {message.sender === 'user' ? 'Kamu' : 'Catty IT'}
                             </span>
                           </div>
                           <div className="whitespace-pre-wrap">
@@ -1219,7 +1216,7 @@ const ChatbotPage: React.FC = () => {
                             <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center mr-2">
                               <Bot className="h-3 w-3 text-blue-600" />
                             </div>
-                            <span className="text-xs text-slate-500">Tanyabot IT</span>
+                            <span className="text-xs text-slate-500">Catty DTI</span>
                           </div>
                           <div className="flex space-x-2">
                             <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse typing-dot"></div>
@@ -1251,7 +1248,7 @@ const ChatbotPage: React.FC = () => {
                       </Button>
                     </div>
                     <div className="mt-2 text-xs text-slate-500 text-center">
-                      <span>Tanyabot akan menjawab pertanyaan tentang Departemen Teknologi Informasi ITS</span>
+                      <span>Catty akan menjawab pertanyaan tentang Departemen Teknologi Informasi ITS</span>
                     </div>
                   </div>
                 </div>
@@ -1275,7 +1272,7 @@ const ChatbotPage: React.FC = () => {
                 Didukung oleh <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-violet-400">Teknologi AI Terbaru</span>
               </h2>
               <p className="text-blue-100/80">
-                Tanyabot memanfaatkan model bahasa terkini yang diintegrasikan dengan basis pengetahuan khusus tentang Departemen Teknologi Informasi ITS
+                Catty memanfaatkan model bahasa terkini yang diintegrasikan dengan basis pengetahuan khusus tentang Departemen Teknologi Informasi ITS
               </p>
             </div>
             

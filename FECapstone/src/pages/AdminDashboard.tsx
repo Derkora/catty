@@ -219,6 +219,18 @@ const AdminDashboard: React.FC = () => {
   const [currentQuestionText, setCurrentQuestionText] = useState(''); // For the edit input field
   const [loadingChatbotQuestions, setLoadingChatbotQuestions] = useState(true);
 
+  // State for Link Upload
+  const [linkForm, setLinkForm] = useState({
+    nama: '',
+    kategori: 'umum', // 'umum' or 'mahasiswa'
+    jenis: 'Dokumen_Administrasi', // 'Dokumen_Administrasi' or 'Dokumen_Akademik'
+    deskripsi: '',
+    link: '',
+  });
+  const [uploadedLinks, setUploadedLinks] = useState<any[]>([]); // Define a proper interface later
+  const [isSubmittingLink, setIsSubmittingLink] = useState(false);
+  const [loadingLinks, setLoadingLinks] = useState(false);
+
 
   const fetchChatbotQuestions = async () => {
     setLoadingChatbotQuestions(true);
@@ -327,6 +339,7 @@ const AdminDashboard: React.FC = () => {
     fetchHistories();
     fetchUsers();
     fetchChatbotQuestions(); // Fetch questions from Strapi
+    fetchLinkList(); // Fetch uploaded links
   }, [refreshKey]);
 
   useEffect(() => {
@@ -486,8 +499,6 @@ const AdminDashboard: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    // shadcn/ui toast doesn't have a persistent loading toast by ID in the same way
-    // We'll show a "processing" toast and then success/error.
     toast({
       title: "Proses Unggah",
       description: "Dokumen sedang diunggah...",
@@ -547,6 +558,142 @@ const AdminDashboard: React.FC = () => {
       setIsSubmitting(false);
     }
   };
+
+  const handleLinkInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setLinkForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleLinkKategoriChange = (value: string) => {
+    setLinkForm(prev => ({ ...prev, kategori: value }));
+  };
+
+  const handleLinkJenisChange = (value: string) => {
+    setLinkForm(prev => ({ ...prev, jenis: value }));
+  };
+
+  const handleUploadLinkSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const { nama, kategori, jenis, deskripsi, link } = linkForm;
+
+    if (!nama || !jenis || !link || !kategori) {
+      toast({
+        title: "Input Tidak Lengkap",
+        description: "Nama, Kategori, Jenis, dan Link Dokumen wajib diisi!",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsSubmittingLink(true);
+    toast({ title: "Proses Unggah Link", description: "Link sedang diunggah..." });
+
+    const formData = new FormData();
+    formData.append("nama", nama);
+    formData.append("jenis", jenis);
+    formData.append("deskripsi", deskripsi);
+    formData.append("link", link);
+    formData.append("category", kategori); // 'category' as per your example JS
+
+    try {
+      const response = await axios.post(`${FLASK_API_BASE_URL}/api/link`, formData, {
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+          // 'Content-Type': 'multipart/form-data' // Axios sets this automatically for FormData
+        }
+      });
+
+      if (response.status !== 200 && response.status !== 201) {
+        throw new Error(response.data.error || `Status ${response.status}`);
+      }
+
+      toast({
+        title: "Berhasil!",
+        description: response.data.message || "Link berhasil diunggah!",
+        variant: "success",
+      });
+      setLinkForm({ nama: '', kategori: 'umum', jenis: 'Dokumen_Administrasi', deskripsi: '', link: '' });
+      fetchLinkList(); // Refresh list
+    } catch (error: any) {
+      console.error("Gagal upload link:", error);
+      toast({
+        title: "Gagal Upload Link",
+        description: error.response?.data?.message || error.message || "Upload link gagal. Silakan coba lagi.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmittingLink(false);
+    }
+  };
+
+  const fetchLinkList = async () => {
+    setLoadingLinks(true);
+    const categories = ["umum", "mahasiswa"];
+    let allLinks: any[] = [];
+    try {
+      for (const category of categories) {
+        const response = await axios.get(`${FLASK_API_BASE_URL}/api/link?category=${category}`, {
+          headers: { "X-Requested-With": "XMLHttpRequest" }
+        });
+        if (response.data && response.data.links) {
+          const categoryLinks = response.data.links.map((item: any) => {
+            const lines = item.content.split("\n");
+            const nama = (lines.find((l: string) => l.startsWith("Nama:")) || "").replace("Nama:", "").trim();
+            const link = (lines.find((l: string) => l.startsWith("Link:")) || "").replace("Link:", "").trim();
+            return {
+              id: item.filename, // Or generate a unique ID
+              filename: item.filename.replace('_link.md', ''),
+              nama,
+              link,
+              kategori: category, // Add category to the object
+              deskripsi: (lines.find((l: string) => l.startsWith("Deskripsi:")) || "").replace("Deskripsi:", "").trim(),
+              jenis: (lines.find((l: string) => l.startsWith("Jenis:")) || "").replace("Jenis:", "").trim(),
+            };
+          });
+          allLinks = [...allLinks, ...categoryLinks];
+        }
+      }
+      setUploadedLinks(allLinks);
+    } catch (error) {
+      console.error('Error fetching link list:', error);
+      toast({
+        title: "Gagal Memuat Daftar Link",
+        description: "Terjadi kesalahan saat mengambil data link.",
+        variant: "destructive",
+      });
+      setUploadedLinks([]);
+    } finally {
+      setLoadingLinks(false);
+    }
+  };
+
+  const handleDeleteLink = async (filename: string, group: string) => {
+    if (window.confirm(`Yakin ingin menghapus link dokumen: ${filename} dari kategori ${group}?`)) {
+      toast({ title: "Proses Hapus Link", description: `Menghapus link ${filename}...` });
+      try {
+        const response = await axios.delete(`${FLASK_API_BASE_URL}/api/link/${filename}?category=${group}`, {
+          headers: { "X-Requested-With": "XMLHttpRequest" }
+        });
+
+        if (response.status !== 200) {
+          throw new Error(response.data.error || `Status ${response.status}`);
+        }
+        toast({
+          title: "Berhasil!",
+          description: "Link berhasil dihapus.",
+          variant: "success",
+        });
+        fetchLinkList(); // Refresh list
+      } catch (error: any) {
+        console.error('Error deleting link:', error);
+        toast({
+          title: "Gagal Hapus Link",
+          description: error.response?.data?.message || error.message || 'Penghapusan link gagal.',
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
 
   const handleDeleteDocument = async (filenameToDelete: string, flaskCat: 'umum' | 'mahasiswa') => {
     // For shadcn/ui, confirmation is typically handled by a Dialog component.
@@ -637,17 +784,15 @@ const AdminDashboard: React.FC = () => {
       setIsCreatingUser(false);
       return;
     }
-
-    // Removed the MAHASISWA_ROLE_ID check as it's now part of newUser state
-    // if (!MAHASISWA_ROLE_ID) { 
-    //   toast({
-    //     title: "Error Konfigurasi",
-    //     description: "Mahasiswa Role ID is not set. Please configure it in the code.",
-    //     variant: "destructive",
-    //   });
-    //   setIsCreatingUser(false);
-    //   return;
-    // }
+    if (!newUser.username || !newUser.email || !newUser.password) {
+      toast({
+        title: "Input Tidak Lengkap",
+        description: "Isi semua kolom untuk menambahkan user.",
+        variant: "destructive",
+      });
+      setIsCreatingUser(false);
+      return;
+    }
 
     toast({
       title: "Proses",
@@ -962,12 +1107,18 @@ const AdminDashboard: React.FC = () => {
               </TabsList>
 
               <TabsContent value="documents" className="space-y-6">
-                <Card className="p-6 border border-slate-200">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
-                    <h2 className="text-xl font-bold text-slate-800">Daftar Dokumen</h2>
-                    <div className="mt-3 sm:mt-0 flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
-                      <div className="relative w-full sm:w-64">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Tabs defaultValue="fileDokumen" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2 mb-6">
+                    <TabsTrigger value="fileDokumen">File Dokumen</TabsTrigger>
+                    <TabsTrigger value="linkDokumen">Link Dokumen</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="fileDokumen">
+                    <Card className="p-6 border border-slate-200">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+                        <h2 className="text-xl font-bold text-slate-800">Daftar File Dokumen</h2>
+                        <div className="mt-3 sm:mt-0 flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
+                          <div className="relative w-full sm:w-64">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                         <Input
                           placeholder="Cari dokumen..."
                           className="pl-9"
@@ -1011,7 +1162,7 @@ const AdminDashboard: React.FC = () => {
                           <TableRow>
                             <TableHead>Nama Dokumen</TableHead>
                             <TableHead>Jenis</TableHead>
-                            <TableHead>Tanggal Dibuat (Mock)</TableHead>
+                            
                             <TableHead>File</TableHead>
                             <TableHead className="text-right">Aksi</TableHead>
                           </TableRow>
@@ -1028,37 +1179,19 @@ const AdminDashboard: React.FC = () => {
                                   {doc.jenisDokumenDisplay}
                                 </Badge>
                               </TableCell>
-                              <TableCell>{formatDate(doc.createdAt)}</TableCell>
                               <TableCell>
                                 <Button
-                                  variant="ghost"
+                                  variant="outline"
                                   size="sm"
-                                  className="text-xs font-normal"
+                                  className="text-blue-600 border-blue-300 hover:bg-blue-50 hover:border-blue-400 flex items-center"
                                   onClick={() => setPreviewDocument(doc)}
                                 >
+                                  <Eye className="h-4 w-4 mr-2" />
                                   <span className="text-sm">Lihat Info</span>
-                                  <ChevronDown className="h-4 w-4 ml-1" />
                                 </Button>
                               </TableCell>
                               <TableCell className="text-right">
                                 <div className="flex justify-end space-x-2">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8 w-8 p-0"
-                                    onClick={() => setPreviewDocument(doc)}
-                                  >
-                                    <Eye className="h-4 w-4 text-blue-600" />
-                                  </Button>
-                                  {/* Edit for Flask documents might require more thought, disabled for now */}
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8 w-8 p-0"
-                                    disabled
-                                  >
-                                    <Edit className="h-4 w-4 text-slate-400" />
-                                  </Button>
                                   <Button
                                     variant="outline"
                                     size="sm"
@@ -1076,7 +1209,73 @@ const AdminDashboard: React.FC = () => {
                     </div>
                   )}
                 </Card>
-
+                  </TabsContent>
+                  <TabsContent value="linkDokumen">
+                  <Card className="p-6 border border-slate-200">
+                        <h3 className="text-lg font-medium text-slate-700 mb-4">Daftar Link Dokumen Tersimpan</h3>
+                        {loadingLinks ? (
+                          <div className="py-4 text-center">
+                            <RefreshCw className="h-8 w-8 mx-auto text-slate-400 animate-spin" />
+                            <p className="mt-2 text-slate-500">Memuat daftar link...</p>
+                          </div>
+                        ) : uploadedLinks.length === 0 ? (
+                          <div className="py-8 text-center">
+                            <FileText className="h-12 w-12 mx-auto text-slate-400 mb-2" />
+                            <p className="text-slate-600">Belum ada link dokumen yang diunggah.</p>
+                          </div>
+                        ) : (
+                          <div className="overflow-x-auto rounded-lg border border-slate-200">
+                            <Table>
+                              <TableHeader className="bg-slate-50">
+                                <TableRow>
+                                  <TableHead>Nama Dokumen</TableHead>
+                                  <TableHead>Link</TableHead>
+                                  <TableHead>Kategori</TableHead>
+                                  <TableHead>Jenis</TableHead>
+                                  <TableHead>Deskripsi</TableHead>
+                                  <TableHead className="text-right">Aksi</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {uploadedLinks.map(linkItem => (
+                                  <TableRow key={linkItem.id} className="hover:bg-slate-50/80">
+                                    <TableCell className="font-medium">{linkItem.nama}</TableCell>
+                                    <TableCell>
+                                      <a href={linkItem.link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline break-all">
+                                        {linkItem.link}
+                                      </a>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Badge className={`${linkItem.kategori === 'umum'
+                                        ? 'bg-blue-100 text-blue-800'
+                                        : 'bg-green-100 text-green-800'
+                                        }`}>
+                                        {linkItem.kategori === 'umum' ? 'Dok. Umum' : 'Dok. Mahasiswa'}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell>{linkItem.jenis.replace(/_/g, ' ')}</TableCell>
+                                    <TableCell className="text-sm text-slate-600 max-w-xs">
+                                      <CollapsibleMessage text={linkItem.deskripsi || '-'} maxLength={100} />
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 w-8 p-0 border-red-200 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
+                                        onClick={() => handleDeleteLink(linkItem.filename, linkItem.kategori)}
+                                      >
+                                        <Trash2 className="h-4 w-4 text-red-500" />
+                                      </Button>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        )}
+                      </Card>
+                  </TabsContent>
+                </Tabs>
                 {/* Simplified Document Preview Modal for FlaskDocument */}
                 {previewDocument && (
                   <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
@@ -1143,99 +1342,200 @@ const AdminDashboard: React.FC = () => {
 
               <TabsContent value="upload" className="space-y-6">
                 <Card className="p-6 border border-slate-200">
-                  <h2 className="text-xl font-bold text-slate-800 mb-6">Unggah Dokumen Baru</h2>
-                  <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <Label htmlFor="namaDokumen" className="text-sm font-medium">Nama Dokumen</Label>
-                        <Input
-                          id="namaDokumen"
-                          name="namaDokumen"
-                          placeholder="Masukkan nama dokumen"
-                          value={documentForm.namaDokumen}
-                          onChange={handleInputChange}
-                          className="border-slate-300 focus:border-blue-500"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="jenisDokumen" className="text-sm font-medium">Jenis Dokumen</Label>
-                        <Select
-                          value={documentForm.jenisDokumen}
-                          onValueChange={handleSelectChange}
-                        >
-                          <SelectTrigger id="jenisDokumen" className="border-slate-300 focus:border-blue-500">
-                            <SelectValue placeholder="Pilih jenis dokumen" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Dokumen_Umum">Dokumen Umum</SelectItem>
-                            <SelectItem value="Dokumen_Mahasiswa">Dokumen Mahasiswa</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="fileDokumen" className="text-sm font-medium">File Dokumen</Label>
-                      <div className="border-2 border-dashed border-slate-200 rounded-lg p-8 hover:bg-slate-50 transition-all">
-                        <div className="flex flex-col items-center text-center">
-                          <FileUp className="h-12 w-12 text-slate-400 mb-3" />
-                          <p className="text-base text-slate-600 mb-1">Seret file kesini atau klik untuk memilih</p>
-                          <p className="text-sm text-slate-500 mb-6">Mendukung PDF, gambar, dan dokumen lainnya</p>
-                          <Input
-                            id="fileDokumen"
-                            type="file"
-                            className="hidden"
-                            onChange={handleFileChange}
-                            required
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="border-blue-300 hover:border-blue-400 hover:bg-blue-50"
-                            onClick={() => document.getElementById('fileDokumen')?.click()}
-                          >
-                            <Upload className="h-4 w-4 mr-2 text-blue-600" />
-                            Pilih File
-                          </Button>
+                  <h2 className="text-xl font-bold text-slate-800 mb-6">Unggah Konten Baru</h2>
+                  <Tabs defaultValue="unggahDokumen" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2 mb-6">
+                      <TabsTrigger value="unggahDokumen">Unggah Dokumen</TabsTrigger>
+                      <TabsTrigger value="unggahLink">Unggah Link Dokumen</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="unggahDokumen">
+                      <form onSubmit={handleSubmit} className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <Label htmlFor="namaDokumen" className="text-sm font-medium">Nama Dokumen</Label>
+                            <Input
+                              id="namaDokumen"
+                              name="namaDokumen"
+                              placeholder="Masukkan nama dokumen"
+                              value={documentForm.namaDokumen}
+                              onChange={handleInputChange}
+                              className="border-slate-300 focus:border-blue-500"
+                              required
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="jenisDokumen" className="text-sm font-medium">Jenis Dokumen</Label>
+                            <Select
+                              value={documentForm.jenisDokumen}
+                              onValueChange={handleSelectChange}
+                            >
+                              <SelectTrigger id="jenisDokumen" className="border-slate-300 focus:border-blue-500">
+                                <SelectValue placeholder="Pilih jenis dokumen" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Dokumen_Umum">Dokumen Umum</SelectItem>
+                                <SelectItem value="Dokumen_Mahasiswa">Dokumen Mahasiswa</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
-                        {files.length > 0 && (
-                          <div className="mt-6 space-y-2 border-t border-slate-200 pt-4">
-                            <p className="text-sm font-medium text-slate-700">File terpilih:</p>
-                            <div className="grid grid-cols-1 gap-3">
-                              <div className="flex items-center border rounded-lg p-3 bg-white">
-                                <FileText className="h-5 w-5 mr-3 text-blue-500" />
-                                <div className="overflow-hidden">
-                                  <p className="truncate text-sm font-medium">{files[0].name}</p>
-                                  <p className="text-xs text-slate-500">{formatFileSize(files[0].size)}</p>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="fileDokumen" className="text-sm font-medium">File Dokumen</Label>
+                          <div className="border-2 border-dashed border-slate-200 rounded-lg p-8 hover:bg-slate-50 transition-all">
+                            <div className="flex flex-col items-center text-center">
+                              <FileUp className="h-12 w-12 text-slate-400 mb-3" />
+                              <p className="text-base text-slate-600 mb-1">Seret file kesini atau klik untuk memilih</p>
+                              <p className="text-sm text-slate-500 mb-6">Mendukung PDF, gambar, dan dokumen lainnya</p>
+                              <Input
+                                id="fileDokumen"
+                                type="file"
+                                className="hidden"
+                                onChange={handleFileChange}
+                                required
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="border-blue-300 hover:border-blue-400 hover:bg-blue-50"
+                                onClick={() => document.getElementById('fileDokumen')?.click()}
+                              >
+                                <Upload className="h-4 w-4 mr-2 text-blue-600" />
+                                Pilih File
+                              </Button>
+                            </div>
+                            {files.length > 0 && (
+                              <div className="mt-6 space-y-2 border-t border-slate-200 pt-4">
+                                <p className="text-sm font-medium text-slate-700">File terpilih:</p>
+                                <div className="grid grid-cols-1 gap-3">
+                                  <div className="flex items-center border rounded-lg p-3 bg-white">
+                                    <FileText className="h-5 w-5 mr-3 text-blue-500" />
+                                    <div className="overflow-hidden">
+                                      <p className="truncate text-sm font-medium">{files[0].name}</p>
+                                      <p className="text-xs text-slate-500">{formatFileSize(files[0].size)}</p>
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end pt-4 border-t border-slate-200">
+                          <Button
+                            type="submit"
+                            className="px-6 py-2 bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white shadow-md hover:shadow-lg transition-all"
+                            disabled={isSubmitting}
+                          >
+                            {isSubmitting ? (
+                              <>
+                                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                Mengunggah...
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="h-4 w-4 mr-2" />
+                                Unggah Dokumen
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </form>
+                    </TabsContent>
+                    <TabsContent value="unggahLink">
+                      <Card className="p-6">
+                        <h3 className="text-lg font-medium text-slate-700 mb-4">Unggah Link Dokumen</h3>
+                        <form onSubmit={handleUploadLinkSubmit} className="space-y-6">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                              <Label htmlFor="nama-link" className="text-sm font-medium">Nama Dokumen</Label>
+                              <Input
+                                id="nama-link"
+                                name="nama"
+                                placeholder="Masukkan nama dokumen"
+                                value={linkForm.nama}
+                                onChange={handleLinkInputChange}
+                                className="border-slate-300 focus:border-blue-500"
+                                required
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="kategori-link" className="text-sm font-medium">Kategori Dokumen</Label>
+                              <Select value={linkForm.kategori} onValueChange={handleLinkKategoriChange}>
+                                <SelectTrigger id="kategori-link" className="border-slate-300 focus:border-blue-500">
+                                  <SelectValue placeholder="Pilih kategori dokumen" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="umum">Dokumen Umum</SelectItem>
+                                  <SelectItem value="mahasiswa">Dokumen Mahasiswa</SelectItem>
+                                </SelectContent>
+                              </Select>
                             </div>
                           </div>
-                        )}
-                      </div>
-                    </div>
 
-                    <div className="flex justify-end pt-4 border-t border-slate-200">
-                      <Button
-                        type="submit"
-                        className="px-6 py-2 bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white shadow-md hover:shadow-lg transition-all"
-                        disabled={isSubmitting}
-                      >
-                        {isSubmitting ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            Mengunggah...
-                          </>
-                        ) : (
-                          <>
-                            <Upload className="h-4 w-4 mr-2" />
-                            Unggah Dokumen
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </form>
+                          <div className="space-y-2">
+                            <Label htmlFor="jenis-link" className="text-sm font-medium">Jenis Dokumen</Label>
+                            <Select value={linkForm.jenis} onValueChange={handleLinkJenisChange}>
+                              <SelectTrigger id="jenis-link" className="border-slate-300 focus:border-blue-500">
+                                <SelectValue placeholder="Pilih jenis dokumen" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Dokumen_Administrasi">Dokumen Administrasi</SelectItem>
+                                <SelectItem value="Dokumen_Akademik">Dokumen Akademik</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="deskripsi-link" className="text-sm font-medium">Deskripsi</Label>
+                            <Input
+                              id="deskripsi-link"
+                              name="deskripsi"
+                              placeholder="Masukkan deskripsi dokumen (opsional)"
+                              value={linkForm.deskripsi}
+                              onChange={handleLinkInputChange}
+                              className="border-slate-300 focus:border-blue-500"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="dokumen-link" className="text-sm font-medium">Link Dokumen</Label>
+                            <Input
+                              id="dokumen-link"
+                              name="link"
+                              type="url"
+                              placeholder="https://example.com/dokumen.pdf"
+                              value={linkForm.link}
+                              onChange={handleLinkInputChange}
+                              className="border-slate-300 focus:border-blue-500"
+                              required
+                            />
+                          </div>
+
+                          <div className="flex justify-end pt-4 border-t border-slate-200">
+                            <Button
+                              type="submit"
+                              className="px-6 py-2 bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white shadow-md hover:shadow-lg transition-all"
+                              disabled={isSubmittingLink}
+                            >
+                              {isSubmittingLink ? (
+                                <>
+                                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                  Mengunggah Link...
+                                </>
+                              ) : (
+                                <>
+                                  <Upload className="h-4 w-4 mr-2" />
+                                  Unggah Link
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </form>
+                      </Card>
+                      {/* The "Daftar Link Dokumen" Card is now moved to the "Dokumen" tab */}
+                    </TabsContent>
+                  </Tabs>
                 </Card>
               </TabsContent>
 
@@ -1530,9 +1830,9 @@ const AdminDashboard: React.FC = () => {
                                     variant="outline"
                                     size="sm"
                                     className="h-8 w-8 p-0"
-                                    onClick={() => handleEditUser(user)}
+                                    disabled
                                   >
-                                    <Edit className="h-4 w-4 text-slate-600" />
+                                    <Edit className="h-4 w-4 text-slate-400" />
                                   </Button>
                                   <Button
                                     variant="outline"
