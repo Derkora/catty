@@ -64,7 +64,7 @@ client.on('message_create', async (message) => {
     if (!question) return;
 
     try {
-        const response = await axios.post('http://host.docker.internal:5000/chat', {
+        const response = await axios.post('http://10.4.89.48:5000/api/chat', {
             message: question,
             role: 'general',
             use_rag: true
@@ -72,7 +72,7 @@ client.on('message_create', async (message) => {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         });
 
-        const reply = response.data.reply || 'Maaf, tidak ada jawaban.';
+        const reply = response.data.answer || 'Maaf, tidak ada jawaban.';
         await client.sendMessage(userId, reply);
 
     } catch (error) {
