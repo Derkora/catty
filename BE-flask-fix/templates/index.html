@@ -66,6 +66,24 @@
     button:hover {
       background-color: #0056b3;
     }
+    .common-column {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      width: 100%;
+      max-width: 500px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    
+    .common-column input[type="text"] {
+      margin-top: 10px;
+    }
+    
+    .common-column h3, .common-column h4 {
+      margin-top: 20px;
+      margin-bottom: 10px;
+    }
     #file-list {
       margin-top: 15px;
       text-align: left;
@@ -257,7 +275,7 @@
 
   <div class="main-container">
     <!-- Kolom Kiri: Chat -->
-    <div class="left-column">
+    <div class="left-column-1 common-column">
       <div id="chat-box"></div>
       <input type="text" id="user-input" placeholder="Ketik pesan..." />
 
@@ -293,6 +311,40 @@
       <h3>Daftar Dokumen</h3>
       <div id="file-list"></div>
     </div>
+
+    <div class="left-column-2 common-column">
+      <h3>Upload Link</h3>
+    
+      <label for="nama-link">Nama Dokumen:</label>
+      <input type="text" id="nama-link" placeholder="Masukkan nama dokumen" />
+    
+      <h4>Pilih Kategori Dokumen</h4>
+      <div class="select">
+        <select id="kategori-link">
+          <option value="umum">Dokumen Umum</option>
+          <option value="mahasiswa">Dokumen Mahasiswa</option>
+        </select>
+      </div>
+    
+      <h4>Pilih Jenis Dokumen</h4>
+      <div class="select">
+        <select id="jenis-link">
+          <option value="Dokumen_Administrasi">Dokumen Administrasi</option>
+          <option value="Dokumen_Akademik">Dokumen Akademik</option>
+        </select>
+      </div>
+    
+      <label for="deskripsi-link">Deskripsi:</label>
+      <input type="text" id="deskripsi-link" placeholder="Masukkan deskripsi dokumen" />
+    
+      <label for="dokumen-link">Link Dokumen:</label>
+      <input type="text" id="dokumen-link" placeholder="Masukkan link dokumen" />
+    
+      <button onclick="uploadLink()">Upload</button>
+    
+      <h3>Daftar Link Dokumen</h3>
+      <div id="link-list"></div>
+    </div>    
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -455,7 +507,123 @@
         });
     }
   
-    window.onload = loadFileList;
+    function uploadLink() {
+      const nama = document.getElementById("nama-link").value.trim();
+      const kategori = document.getElementById("kategori-link").value;
+      const jenis = document.getElementById("jenis-link").value;
+      const deskripsi = document.getElementById("deskripsi-link").value.trim();
+      const link = document.getElementById("dokumen-link").value.trim();
+      
+      if (!nama || !jenis || !link || !kategori) {
+        return alert("Semua field kecuali deskripsi wajib diisi!");
+      }
+      
+      const formData = new FormData();
+      formData.append("nama", nama);
+      formData.append("jenis", jenis);
+      formData.append("deskripsi", deskripsi);
+      formData.append("link", link);
+      formData.append("category", kategori);
+      
+      fetch("/api/link", {
+        method: "POST",
+        headers: {
+          "X-Requested-With": "XMLHttpRequest"
+        },
+        body: formData
+      })
+        .then(async res => {
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error(`Status ${res.status}: ${text}`);
+          }
+          return res.json();
+        })
+        .then(data => {
+          alert(data.message || "Link berhasil diunggah!");
+          document.getElementById("nama-link").value = "";
+          document.getElementById("deskripsi-link").value = "";
+          document.getElementById("dokumen-link").value = "";
+          loadLinkList();  // Menyegarkan daftar link setelah upload
+        })
+        .catch(err => {
+          console.error("Gagal upload link:", err);
+          alert("Upload link gagal: " + err.message);
+        });
+    }    
+    
+    function loadLinkList() {
+      const groups = ["umum", "mahasiswa"];
+      const linkList = document.getElementById("link-list");
+      linkList.innerHTML = "<table border='1' style='width:100%; border-collapse: collapse;'><thead><tr><th>Nama</th><th>Link</th><th>Kategori</th><th>Aksi</th></tr></thead><tbody></tbody></table>";
+      const tableBody = linkList.querySelector("tbody");
+    
+      groups.forEach(group => {
+        fetch(`/api/link?category=${group}`, {
+          method: "GET",
+          headers: {
+            "X-Requested-With": "XMLHttpRequest"
+          }
+        })
+          .then(res => {
+            if (!res.ok) {
+              throw new Error(`Gagal memuat link dari kategori ${group}: Status ${res.status}`);
+            }
+            return res.json();
+          })
+          .then(data => {
+            if (!data.links) {
+              throw new Error("Data link tidak ditemukan di respon API.");
+            }
+            (data.links || []).forEach(item => {
+              const lines = item.content.split("\n");
+              const nama = (lines.find(l => l.startsWith("Nama:")) || "").replace("Nama:", "").trim();
+              const link = (lines.find(l => l.startsWith("Link:")) || "").replace("Link:", "").trim();
+              const row = document.createElement("tr");
+              row.innerHTML = `
+                <td>${nama}</td>
+                <td><a href="${link}" target="_blank">${link}</a></td>
+                <td>${group}</td>
+                <td><button class="delete-btn" onclick="deleteLink('${item.filename.replace('_link.md', '')}', '${group}')">Hapus</button></td>
+              `;
+              tableBody.appendChild(row);
+            });
+          })
+          .catch(err => {
+            console.error(`Gagal memuat link dari kategori ${group}:`, err);
+            alert(`Gagal memuat link dari kategori ${group}: ${err.message}`);
+          });
+      });
+    }
+    
+    function deleteLink(filename, group) {
+      fetch(`/api/link/${filename}?category=${group}`, {
+        method: "DELETE",
+        headers: {
+          "X-Requested-With": "XMLHttpRequest"
+        }
+      })
+        .then(res => {
+          if (!res.ok) {
+            throw new Error(`Gagal menghapus link: Status ${res.status}`);
+          }
+          return res.json();
+        })
+        .then(data => {
+          alert("Link berhasil dihapus!");
+          loadLinkList();
+        })
+        .catch(err => {
+          console.error("Gagal menghapus link:", err);
+          alert("Penghapusan link gagal: " + err.message);
+        });
+    }
+    
+  
+    window.onload = function() {
+      loadFileList();
+      loadLinkList(); 
+    };
   </script>
 </body>
 </html>

@@ -25,19 +25,41 @@ DATA_PATH = "data/uploads"
 def initialize_category_rag(category):
     try:
         original_path = os.path.join(DATA_PATH, "original", category)
+        markdown_path = os.path.join(DATA_PATH, "markdown", category)
 
+        # === Proses semua PDF di folder original ===
         if os.path.exists(original_path):
             pdf_files = [f for f in os.listdir(original_path) if f.endswith('.pdf')]
             for pdf in pdf_files:
                 pdf_path = os.path.join(original_path, pdf)
                 try:
                     logger.info(f"Converting file: {pdf_path} in category {category}")
-                    process_pdf(pdf_path, category)
-                    task_queue.put((pdf_path, category))
+                    process_pdf(pdf_path, category)  # Proses PDF ke folder sesuai kategori
+                    task_queue.put((pdf_path, category))  # Tambahkan ke antrean
                 except Exception as e:
                     logger.error(f"Error converting file {pdf_path}: {e}", exc_info=True)
         else:
-            logger.error(f"Original path not found: {original_path}")
+            logger.warning(f"Original path not found: {original_path}")
+
+        # === Proses semua file .md dari folder markdown ===
+        if os.path.exists(markdown_path):
+            from modules.chatit import add_documents_to_vectorstore  # Pastikan ini sesuai modulmu
+            md_documents = []
+
+            for file in os.listdir(markdown_path):
+                file_path = os.path.join(markdown_path, file)
+                if os.path.isfile(file_path) and file.endswith('.md'):
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                        md_documents.append({
+                            "content": content,
+                            "metadata": {"source": file_path}
+                        })
+
+            if md_documents:
+                logger.info(f"Menambahkan {len(md_documents)} file markdown ke vectorstore untuk {category}")
+                add_documents_to_vectorstore(md_documents, category)  # Menambahkan ke vectorstore berdasarkan kategori
+
     except Exception as e:
         logger.error(f"Error in initialize_category_rag({category}): {e}", exc_info=True)
 
@@ -84,7 +106,7 @@ def upload_file_nonpdf():
 @crudit_bp.route('/api/files', methods=['GET'])
 def list_files():
     try:
-        category = request.args.get('category', 'mahasiswa')
+        category = request.args.get('category', 'umum')
         original_path = os.path.join("data", "uploads", "original", category)
         markdown_path = os.path.join("data", "uploads", "markdown", category)
         result = {}
@@ -133,7 +155,7 @@ def list_files():
 @crudit_bp.route('/api/files/<folder>', methods=['DELETE'])
 def delete_file(folder):
     try:
-        category = request.args.get('category', 'mahasiswa')
+        category = request.args.get('category', 'umum')
         original_path = os.path.join(DATA_PATH, "original", category)
 
         # Cari file PDF yang cocok
@@ -201,6 +223,121 @@ def delete_file(folder):
     except Exception as e:
         logger.error(f"Gagal hapus file {folder} di kategori {category}:", exc_info=True)
         return jsonify({"error": str(e)}), 500
+
+@crudit_bp.route('/api/link', methods=['POST'])
+def upload_link():
+    try:
+        nama = request.form.get('nama')
+        jenis = request.form.get('jenis')
+        deskripsi = request.form.get('deskripsi', '')
+        link = request.form.get('link')
+        category = request.form.get('category', 'umum')
+
+        if not nama or not jenis or not link:
+            return jsonify({"error": "Field nama, jenis, dan link wajib diisi"}), 400
+
+        folder_path = os.path.join(DATA_PATH, "markdown", category)
+        os.makedirs(folder_path, exist_ok=True)
+
+        unique_id = uuid.uuid4().hex[:8]
+        filename = f"{nama}_{unique_id}.md"
+
+        filepath = os.path.join(folder_path, filename)
+
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(f"Nama: {nama}\n")
+            f.write(f"Jenis: {jenis}\n")
+            f.write(f"Deskripsi: {deskripsi}\n")
+            f.write(f"Link: {link}\n")
+
+        # Trigger rebuild
+        try:
+            response = requests.post(
+                os.environ.get("REBUILD_URL", "http://localhost:5000/api/rebuild"),
+                json={"group": category},
+                headers=headers
+            )
+            logger.info(f"Rebuild response: {response.status_code} - {response.text}")
+        except Exception as e:
+            logger.warning(f"Gagal trigger rebuild link: {e}")
+
+        return jsonify({"message": "Link berhasil disimpan", "filename": filename}), 201
+    except FileNotFoundError as e:
+        logger.error("Folder tidak ditemukan:", exc_info=True)
+        return jsonify({"error": "Folder tidak ditemukan: " + str(e)}), 404
+    except PermissionError as e:
+        logger.error("Permission error saat menulis file:", exc_info=True)
+        return jsonify({"error": "Permission error: " + str(e)}), 403
+    except Exception as e:
+        logger.error("Error saat upload link:", exc_info=True)
+        return jsonify({"error": "Terjadi kesalahan: " + str(e)}), 500
+
+@crudit_bp.route('/api/link', methods=['GET'])
+def list_links():
+    try:
+        category = request.args.get('category', 'umum')
+        folder_path = os.path.join(DATA_PATH, "markdown", category)
+
+        if not os.path.exists(folder_path):
+            logger.warning(f"Folder {folder_path} tidak ditemukan.")
+            return jsonify({"links": []}), 200
+
+        link_files = [f for f in os.listdir(folder_path) if f.endswith('.md')]
+        if not link_files:
+            logger.info(f"Tidak ada link dalam kategori {category}.")
+            return jsonify({"links": []}), 200
+
+        results = []
+        for f in link_files:
+            try:
+                with open(os.path.join(folder_path, f), 'r', encoding='utf-8') as file:
+                    content = file.read()
+                results.append({
+                    "filename": f,
+                    "content": content,
+                    "url": f"/static/uploads/markdown/{category}/{f}"
+                })
+            except Exception as e:
+                logger.error(f"Error membaca file {f}: {e}", exc_info=True)
+
+        return jsonify({"links": results}), 200
+    except Exception as e:
+        logger.error("Gagal mengambil daftar link:", exc_info=True)
+        return jsonify({"error": "Terjadi kesalahan: " + str(e)}), 500
+
+
+@crudit_bp.route('/api/link/<filename>', methods=['DELETE'])
+def delete_link(filename):
+    try:
+        category = request.args.get('category', 'umum')
+        folder_path = os.path.join(DATA_PATH, "markdown", category)
+        full_path = os.path.join(folder_path, filename)  # langsung pakai filename
+
+        if not os.path.exists(full_path):
+            return jsonify({"error": "File tidak ditemukan"}), 404
+
+        os.remove(full_path)
+        logger.info(f"Deleted link markdown: {full_path}")
+
+        try:
+            response = requests.post(
+                os.environ.get("REBUILD_URL", "http://localhost:5000/api/rebuild"),
+                json={"group": category},
+                headers=headers
+            )
+        except Exception as e:
+            logger.warning(f"Gagal trigger rebuild setelah hapus link: {e}")
+
+        return jsonify({"message": "Link berhasil dihapus"}), 200
+    except FileNotFoundError as e:
+        logger.error("File tidak ditemukan:", exc_info=True)
+        return jsonify({"error": "File tidak ditemukan: " + str(e)}), 404
+    except PermissionError as e:
+        logger.error("Permission error saat menghapus file:", exc_info=True)
+        return jsonify({"error": "Permission error: " + str(e)}), 403
+    except Exception as e:
+        logger.error("Gagal hapus link:", exc_info=True)
+        return jsonify({"error": "Terjadi kesalahan: " + str(e)}), 500
 
 @crudit_bp.route('/api/health/crudit', methods=['GET'])
 def health_check_crudit():
