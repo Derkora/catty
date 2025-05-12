@@ -440,7 +440,7 @@ export interface ApiHistoryHistory extends Struct.CollectionTypeSchema {
       'manyToOne',
       'plugin::users-permissions.user'
     >;
-    userType: Schema.Attribute.Enumeration<['public', 'mahasiswa']> &
+    userType: Schema.Attribute.Enumeration<['general', 'mahasiswa']> &
       Schema.Attribute.Required;
   };
 }
