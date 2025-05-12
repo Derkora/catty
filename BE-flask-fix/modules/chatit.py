@@ -14,6 +14,8 @@ from langchain.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
 from langchain_community.llms import Ollama
 
+import chromadb
+
 chat_bp = Blueprint('chat', __name__)
 logger = logging.getLogger(__name__)
 
@@ -70,6 +72,9 @@ Di sini juga da perubahan
 -Zidan
 '''
 def rebuild_chroma(group=None):
+    
+    chromadb.api.client.SharedSystemClient.clear_system_cache()
+
     try:
         with vectorstore_lock:
             for group_name in ['mahasiswa', 'umum']:
@@ -219,7 +224,7 @@ def api_chat():
 
         # Ambil prompt sesuai role
         prompt = PROMPT_TEMPLATE_WITH_CONTEXT.get(role, PROMPT_TEMPLATE_WITH_CONTEXT["general"])
-        llm = Ollama(model="qwen2.5:7b-instruct", base_url="http://localhost:11434")
+        llm = Ollama(model="qwen2.5:7b-instruct", base_url="http://host.docker.internal:11434")
 
         '''
         Ada beberapa perubahan di sini:
