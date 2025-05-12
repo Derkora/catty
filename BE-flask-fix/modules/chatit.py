@@ -14,6 +14,8 @@ from langchain.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
 from langchain_community.llms import Ollama
 
+import chromadb
+
 chat_bp = Blueprint('chat', __name__)
 logger = logging.getLogger(__name__)
 
@@ -70,6 +72,9 @@ Di sini juga da perubahan
 -Zidan
 '''
 def rebuild_chroma(group=None):
+    
+    chromadb.api.client.SharedSystemClient.clear_system_cache()
+
     try:
         with vectorstore_lock:
             for group_name in ['mahasiswa', 'umum']:
