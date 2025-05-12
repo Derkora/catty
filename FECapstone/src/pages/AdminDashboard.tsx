@@ -498,33 +498,33 @@ const AdminDashboard: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const { namaDokumen, jenisDokumen } = documentForm;
+
+    if (files.length === 0 || !namaDokumen || !jenisDokumen) {
+      toast({
+        title: "Input Tidak Lengkap",
+        description: "Nama Dokumen, Jenis Dokumen, dan File wajib diisi!",
+        variant: "destructive",
+      });
+      return;
+    }
     setIsSubmitting(true);
     toast({
-      title: "Proses Unggah",
+      title: "Proses Unggah Dokumen",
       description: "Dokumen sedang diunggah...",
     });
 
+    const formData = new FormData();
+    formData.append("file", files[0]);
+    formData.append("jenisDokumen", jenisDokumen);
+    formData.append("namaDokumen", namaDokumen);
+
+    const isPDF = files[0].name.toLowerCase().endsWith('.pdf');
+    const endpoint = `${FLASK_API_BASE_URL}${isPDF ? "/api/convert" : "/api/upload"}`;
+
+    console.log(`Mengunggah ke ${endpoint}:`, files[0].name);
+
     try {
-      if (files.length === 0) {
-        toast({
-          title: "Input Tidak Lengkap",
-          description: "Isi nama dokumen dan pilih file terlebih dahulu!",
-          variant: "destructive",
-        });
-        setIsSubmitting(false);
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append("file", files[0]);
-      formData.append("jenisDokumen", documentForm.jenisDokumen);
-      formData.append("namaDokumen", documentForm.namaDokumen);
-
-      const isPDF = files[0].name.toLowerCase().endsWith('.pdf');
-      const endpoint = `${FLASK_API_BASE_URL}${isPDF ? "/api/convert" : "/api/upload"}`;
-
-      console.log(`Mengunggah ke ${endpoint}:`, files[0].name);
-
       const response = await axios({
         method: 'post',
         url: endpoint,
@@ -535,23 +535,73 @@ const AdminDashboard: React.FC = () => {
         }
       });
 
-      if (response.status !== 200) {
-        throw new Error(response.data.error || "Terjadi kesalahan");
-      }
+      if (response.status === 202) {
+        // Document is being processed
+        const docId = response.data.doc_id;
+        toast({
+          title: "Memproses Dokumen",
+          description: "Dokumen sedang diproses...",
+        });
 
-      toast({
-        title: "Berhasil!",
-        description: response.data.message || "Upload berhasil!",
-        variant: "success",
-      });
-      setDocumentForm({ namaDokumen: "", jenisDokumen: "Dokumen_Umum" });
-      setFiles([]);
-      setRefreshKey(prev => prev + 1);
+        // Start polling for document processing status
+        const checkProcessingStatus = async () => {
+          try {
+            const statusResponse = await axios.get(`${FLASK_API_BASE_URL}/api/process-status/${docId}`, {
+              headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+
+            if (statusResponse.data.status === 'completed') {
+              toast({
+                title: "Berhasil!",
+                description: "Dokumen berhasil diunggah dan diproses!",
+                variant: "success",
+              });
+              setDocumentForm({ namaDokumen: "", jenisDokumen: "Dokumen_Umum" });
+              setFiles([]);
+              setRefreshKey(prev => prev + 1);
+              return true;
+            } else if (statusResponse.data.status === 'failed') {
+              throw new Error(statusResponse.data.error || "Pemrosesan dokumen gagal");
+            }
+            // Continue polling if still processing
+            return false;
+          } catch (error) {
+            console.error("Error checking processing status:", error);
+            throw error;
+          }
+        };
+
+        // Poll every 2 seconds until processing is complete or fails
+        const pollInterval = setInterval(async () => {
+          try {
+            const isComplete = await checkProcessingStatus();
+            if (isComplete) {
+              clearInterval(pollInterval);
+            }
+          } catch (error) {
+            clearInterval(pollInterval);
+            throw error;
+          }
+        }, 2000);
+
+      } else if (response.status === 200 || response.status === 201) {
+        // Document was processed immediately
+        toast({
+          title: "Berhasil!",
+          description: response.data.message || "Dokumen berhasil diunggah!",
+          variant: "success",
+        });
+        setDocumentForm({ namaDokumen: "", jenisDokumen: "Dokumen_Umum" });
+        setFiles([]);
+        setRefreshKey(prev => prev + 1);
+      } else {
+        throw new Error(response.data.error || `Status ${response.status}`);
+      }
     } catch (error: any) {
-      console.error("Gagal upload:", error);
+      console.error("Gagal upload dokumen:", error);
       toast({
-        title: "Gagal Upload",
-        description: error.response?.data?.error || "Upload gagal. Silakan coba lagi.",
+        title: "Gagal Upload Dokumen",
+        description: error.response?.data?.message || error.message || "Upload dokumen gagal. Silakan coba lagi.",
         variant: "destructive",
       });
     } finally {
@@ -696,12 +746,9 @@ const AdminDashboard: React.FC = () => {
 
 
   const handleDeleteDocument = async (filenameToDelete: string, flaskCat: 'umum' | 'mahasiswa') => {
-    // For shadcn/ui, confirmation is typically handled by a Dialog component.
-    // We'll use a simple window.confirm for now, then show a toast.
-    // For a more integrated look, you'd replace window.confirm with a Dialog.
-    if (window.confirm(`Yakin ingin menghapus dokumen: ${filenameToDelete}?`)) {
+    if (window.confirm(`Yakin ingin menghapus dokumen: ${filenameToDelete} dari kategori ${flaskCat}?`)) {
       toast({
-        title: "Proses Hapus",
+        title: "Proses Hapus Dokumen",
         description: `Menghapus dokumen ${filenameToDelete}...`,
       });
       try {
@@ -712,21 +759,21 @@ const AdminDashboard: React.FC = () => {
           }
         );
 
-        if (response.status === 200 && response.data.message === "Berhasil dihapus") {
-          toast({
-            title: "Berhasil!",
-            description: "Dokumen berhasil dihapus.",
-            variant: "success",
-          });
-          setRefreshKey(prev => prev + 1);
-        } else {
-          throw new Error(response.data.error || 'Operasi hapus gagal');
+        if (response.status !== 200) {
+          throw new Error(response.data.error || `Status ${response.status}`);
         }
+
+        toast({
+          title: "Berhasil!",
+          description: "Dokumen berhasil dihapus.",
+          variant: "success",
+        });
+        setRefreshKey(prev => prev + 1);
       } catch (error: any) {
         console.error('Error deleting document:', error);
         toast({
-          title: "Gagal Hapus",
-          description: error.response?.data?.error || error.message || 'Penghapusan gagal. Silakan coba lagi.',
+          title: "Gagal Hapus Dokumen",
+          description: error.response?.data?.message || error.message || 'Penghapusan dokumen gagal.',
           variant: "destructive",
         });
       }

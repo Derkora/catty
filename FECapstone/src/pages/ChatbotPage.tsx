@@ -215,6 +215,15 @@ const ChatbotPage: React.FC = () => {
         const parsedUser = JSON.parse(userString);
         setUser(parsedUser);
         setIsAuthenticated(true);
+        // Set role based on user type
+        if (parsedUser?.role?.name === 'Mahasiswa IT') {
+          setRole('mahasiswa');
+        } else if (parsedUser?.role?.name === 'Admin IT') {
+          // Admin can use either mode, default to general
+          setRole('general');
+        } else {
+          setRole('general');
+        }
       } catch (error) {
         console.error("Error parsing user data:", error);
         // Clear invalid data
@@ -222,10 +231,12 @@ const ChatbotPage: React.FC = () => {
         localStorage.removeItem('user');
         setIsAuthenticated(false);
         setUser(null);
+        setRole('general');
       }
     } else {
       setIsAuthenticated(false);
       setUser(null);
+      setRole('general');
     }
   }, []);
   
@@ -307,6 +318,39 @@ const ChatbotPage: React.FC = () => {
   }, [chatSessions]);
 
   const handleRoleChange = (newRole: 'general' | 'mahasiswa') => {
+    // Allow Admin IT to switch between both modes
+    if (user?.role?.name === 'Admin IT') {
+      setRole(newRole);
+      toast({
+        title: "Mode Chatbot Berubah",
+        description: newRole === 'general' 
+          ? "Mode umum aktif" 
+          : "Mode mahasiswa aktif dengan akses informasi khusus",
+        variant: "default",
+      });
+      return;
+    }
+
+    // Only allow mahasiswa mode for authenticated Mahasiswa IT users
+    if (newRole === 'mahasiswa' && (!isAuthenticated || user?.role?.name !== 'Mahasiswa IT')) {
+      toast({
+        title: "Akses Dibatasi",
+        description: "Mode mahasiswa hanya tersedia untuk mahasiswa yang telah login",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Only allow general mode for non-Mahasiswa IT users
+    if (newRole === 'general' && isAuthenticated && user?.role?.name === 'Mahasiswa IT') {
+      toast({
+        title: "Akses Dibatasi",
+        description: "Mahasiswa hanya dapat menggunakan mode mahasiswa",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setRole(newRole);
     toast({
       title: "Mode Chatbot Berubah",
@@ -1033,7 +1077,7 @@ const ChatbotPage: React.FC = () => {
                               size="sm"
                               variant={role === 'mahasiswa' ? 'default' : 'outline'}
                               className={`rounded-full text-xs transition-all duration-300 ${role === 'mahasiswa' ? 'bg-white text-violet-700 shadow-lg' : 'bg-white/10 text-white border-white/30 hover:bg-white/20'}`}
-                              disabled={!isAuthenticated || user?.role?.name !== 'Mahasiswa IT'}
+                              disabled={!isAuthenticated || (user?.role?.name !== 'Mahasiswa IT' && user?.role?.name !== 'Admin IT')}
                             >
                               Mode Mahasiswa
                             </Button>
