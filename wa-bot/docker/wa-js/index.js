@@ -53,10 +53,10 @@ client.on('message_create', async (message) => {
 
 Saya adalah asisten AI yang siap membantu kamu mendapatkan informasi seputar *Departemen Teknologi Informasi ITS*.
 
-Ketik dengan awalan \`catty!\` untuk mulai bertanya.
+Ketik dengan awalan \`!catty\` untuk mulai bertanya.
 
 Contoh:
-\`catty! Apa perbedaan teknologi informasi dan sistem informasi?\`
+\`!catty Apa perbedaan teknologi informasi dan sistem informasi?\`
 
 *Tanya apa saja, Catty siap bantu!* 📩`;
 
@@ -67,7 +67,7 @@ Contoh:
 
     // Hanya tanggapi jika pakai prefix !ask
     let question = "";
-    if (lowered.startsWith("!ask ")) {
+    if (lowered.startsWith("!catty ")) {
         question = rawMessage.slice(5).trim();
     }
 
