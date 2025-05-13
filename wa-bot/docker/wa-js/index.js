@@ -41,11 +41,10 @@ client.once('ready', async () => {
 
 // Tangani pesan masuk
 client.on('message_create', async (message) => {
-    if (message.fromMe || message.isGroupMsg) return; // ⛔ skip jika dari bot sendiri atau grup
+    if (message.fromMe || message.from.includes('@g.us')) return; // ⛔ skip jika dari bot sendiri atau grup
 
     const userId = message.from;
     const rawMessage = message.body.trim();
-    const lowered = rawMessage.toLowerCase();
 
     // Greeting untuk user baru
     if (!greetedUsers.has(userId)) {
@@ -53,10 +52,10 @@ client.on('message_create', async (message) => {
 
 Saya adalah asisten AI yang siap membantu kamu mendapatkan informasi seputar *Departemen Teknologi Informasi ITS*.
 
-Ketik dengan awalan \`!catty\` untuk mulai bertanya.
+Ketik pertanyaanmu langsung, tanpa perlu awalan khusus.
 
 Contoh:
-\`!catty Apa perbedaan teknologi informasi dan sistem informasi?\`
+Apa perbedaan teknologi informasi dan sistem informasi?
 
 *Tanya apa saja, Catty siap bantu!* 📩`;
 
@@ -65,13 +64,8 @@ Contoh:
         return; // ⛔ jangan langsung proses pertanyaan
     }
 
-    // Hanya tanggapi jika pakai prefix !ask
-    let question = "";
-    if (lowered.startsWith("!catty ")) {
-        question = rawMessage.slice(5).trim();
-    }
-
-    if (!question) return;
+    // Langsung proses semua pertanyaan setelah greeting
+    const question = rawMessage;
 
     try {
         const response = await axios.post('http://10.4.89.48:5000/api/chat', {
