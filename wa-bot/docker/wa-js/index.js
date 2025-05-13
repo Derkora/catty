@@ -52,11 +52,6 @@ client.on('message_create', async (message) => {
 
 Saya adalah asisten AI yang siap membantu kamu mendapatkan informasi seputar *Departemen Teknologi Informasi ITS*.
 
-Ketik pertanyaanmu langsung, tanpa perlu awalan khusus.
-
-Contoh:
-Apa perbedaan teknologi informasi dan sistem informasi?
-
 *Tanya apa saja, Catty siap bantu!* 📩`;
 
         await client.sendMessage(userId, greeting);
