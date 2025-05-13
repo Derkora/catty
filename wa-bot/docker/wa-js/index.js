@@ -49,7 +49,17 @@ client.on('message_create', async (message) => {
 
     // Greeting untuk user baru
     if (!greetedUsers.has(userId)) {
-        const greeting = `👋 Halo! Saya adalah asisten AI DTI ITS.\n\nKetik *!ask pertanyaan* untuk mulai bertanya.`;
+        const greeting = `👋 Halo! Selamat datang di *Catty - Chatbot Teknologi Informasi ITS* 📡✨
+
+Saya adalah asisten AI yang siap membantu kamu mendapatkan informasi seputar *Departemen Teknologi Informasi ITS*.
+
+Ketik dengan awalan \`catty!\` untuk mulai bertanya.
+
+Contoh:
+\`catty! Apa perbedaan teknologi informasi dan sistem informasi?\`
+
+*Tanya apa saja, Catty siap bantu!* 📩`;
+
         await client.sendMessage(userId, greeting);
         greetedUsers.add(userId);
         return; // ⛔ jangan langsung proses pertanyaan
