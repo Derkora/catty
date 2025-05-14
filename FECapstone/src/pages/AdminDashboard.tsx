@@ -25,7 +25,8 @@ import {
   User,
   BookOpen,
   GraduationCap,
-  HelpCircle
+  HelpCircle,
+  Check
 } from 'lucide-react';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
@@ -230,7 +231,14 @@ const AdminDashboard: React.FC = () => {
   const [uploadedLinks, setUploadedLinks] = useState<any[]>([]); // Define a proper interface later
   const [isSubmittingLink, setIsSubmittingLink] = useState(false);
   const [loadingLinks, setLoadingLinks] = useState(false);
+  const [waIframeKey, setWaIframeKey] = useState(0); // State to force reload WhatsApp Bot iframe
 
+  // Pending user approval state
+  const [pendingUsers, setPendingUsers] = useState<any[]>([]);
+  const [loadingPendingUsers, setLoadingPendingUsers] = useState(false);
+  const [pendingUsersError, setPendingUsersError] = useState<string | null>(null);
+  const [isApprovingUser, setIsApprovingUser] = useState(false);
+  const [isRejectingUser, setIsRejectingUser] = useState(false);
 
   const fetchChatbotQuestions = async () => {
     setLoadingChatbotQuestions(true);
@@ -333,38 +341,6 @@ const AdminDashboard: React.FC = () => {
       }
     }
   };
-
-  useEffect(() => {
-    fetchFlaskDocuments();
-    fetchHistories();
-    fetchUsers();
-    fetchChatbotQuestions(); // Fetch questions from Strapi
-    fetchLinkList(); // Fetch uploaded links
-  }, [refreshKey]);
-
-  useEffect(() => {
-    if (flaskDocuments.length > 0) {
-      let filtered = [...flaskDocuments];
-
-      // Filter by search term
-      if (searchTerm) {
-        filtered = filtered.filter(doc =>
-          doc.namaDokumen.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-      }
-
-      // Filter by document type (using jenisDokumenDisplay)
-      if (filterType !== 'all') {
-        filtered = filtered.filter(doc =>
-          doc.jenisDokumenDisplay === filterType
-        );
-      }
-
-      setFilteredFlaskDocuments(filtered);
-    } else {
-      setFilteredFlaskDocuments([]);
-    }
-  }, [flaskDocuments, searchTerm, filterType]);
 
   const fetchFlaskDocuments = async () => {
     setLoading(true);
@@ -479,6 +455,103 @@ const AdminDashboard: React.FC = () => {
       setHistories([]);
     }
   };
+
+  const fetchPendingUsers = async () => {
+    setLoadingPendingUsers(true);
+    setPendingUsersError(null);
+    try {
+      const token = localStorage.getItem('jwt');
+      const res = await fetch(`${import.meta.env.VITE_STRAPI_URL || 'http://localhost:1337'}/api/users`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Gagal memuat pengguna pending');
+      const data = await res.json();
+      setPendingUsers(data);
+    } catch (err: any) {
+      setPendingUsersError(err.message || 'Gagal memuat pengguna pending');
+    } finally {
+      setLoadingPendingUsers(false);
+    }
+  };
+
+  const handleApproveUser = async (userId: number) => {
+    setIsApprovingUser(true);
+    try {
+      const token = localStorage.getItem('jwt');
+      const res = await fetch(`${import.meta.env.VITE_STRAPI_URL || 'http://localhost:1337'}/api/users/${userId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ confirmed: true }),
+      });
+      if (!res.ok) throw new Error('Gagal mengkonfirmasi pengguna');
+      await fetchPendingUsers();
+    } catch (err) {
+      alert('Gagal mengkonfirmasi pengguna');
+    } finally {
+      setIsApprovingUser(false);
+    }
+  };
+
+  // Reject user (delete user)
+  const handleRejectUser = async (userId: number) => {
+    if (!window.confirm('Yakin ingin menolak dan menghapus pengguna ini?')) return;
+    setIsRejectingUser(true);
+    try {
+      const token = localStorage.getItem('jwt');
+      const res = await fetch(`${import.meta.env.VITE_STRAPI_URL || 'http://localhost:1337'}/api/users/${userId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Gagal menghapus pengguna');
+      await fetchPendingUsers();
+    } catch (err) {
+      alert('Gagal menghapus pengguna');
+    } finally {
+      setIsRejectingUser(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchFlaskDocuments();
+    fetchHistories();
+    fetchUsers();
+    fetchChatbotQuestions(); // Fetch questions from Strapi
+    fetchLinkList(); // Fetch uploaded links
+  }, [refreshKey]);
+
+  useEffect(() => {
+    if (flaskDocuments.length > 0) {
+      let filtered = [...flaskDocuments];
+
+      // Filter by search term
+      if (searchTerm) {
+        filtered = filtered.filter(doc =>
+          doc.namaDokumen.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      }
+
+      // Filter by document type (using jenisDokumenDisplay)
+      if (filterType !== 'all') {
+        filtered = filtered.filter(doc =>
+          doc.jenisDokumenDisplay === filterType
+        );
+      }
+
+      setFilteredFlaskDocuments(filtered);
+    } else {
+      setFilteredFlaskDocuments([]);
+    }
+  }, [flaskDocuments, searchTerm, filterType]);
+
+  // Fetch pending users on mount and when switching to users tab
+  useEffect(() => {
+    if (activeTab === 'users' || activeTab === 'pending-users') {
+      fetchPendingUsers();
+    }
+  }, [activeTab]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -931,8 +1004,7 @@ const AdminDashboard: React.FC = () => {
       id: userToEdit.id,
       username: userToEdit.username,
       email: userToEdit.email,
-      role: userToEdit.role?.id || 3, // Default to Mahasiswa IT if role is not set
-      // Password is not pre-filled for security/UX reasons; it's an optional update
+      role: userToEdit.role?.id || 3, 
     });
     setIsEditUserModalOpen(true);
   };
@@ -1003,15 +1075,6 @@ const AdminDashboard: React.FC = () => {
     } finally {
       setIsUpdatingUser(false);
     }
-  };
-
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('id-ID', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    });
   };
 
   const formatFileSize = (bytes: number | undefined) => {
@@ -1150,6 +1213,14 @@ const AdminDashboard: React.FC = () => {
                 <TabsTrigger value="history" className="rounded-md py-2 px-3">
                   <FileText className="h-4 w-4 mr-2" />
                   Chat History
+                </TabsTrigger>
+                <TabsTrigger value="wa-bot" className="rounded-md py-2 px-3">
+                  <span role="img" aria-label="whatsapp">💬</span>
+                  WhatsApp Bot
+                </TabsTrigger>
+                <TabsTrigger value="pending-users" className="rounded-md py-2 px-3">
+                  <Users className="h-4 w-4 mr-2" />
+                  Registrasi Baru
                 </TabsTrigger>
               </TabsList>
 
@@ -1841,7 +1912,7 @@ const AdminDashboard: React.FC = () => {
                             <TableHead>Username</TableHead>
                             <TableHead>Email</TableHead>
                             <TableHead>Role</TableHead>
-                            <TableHead>Status</TableHead>
+                            {/* <TableHead>Status</TableHead> */}
                             <TableHead className="text-right">Aksi</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -1860,7 +1931,7 @@ const AdminDashboard: React.FC = () => {
                                   {user.role?.name || 'No Role'}
                                 </Badge>
                               </TableCell>
-                              <TableCell>
+                              {/* <TableCell>
                                 <Badge className={`${user.confirmed ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                                   }`}>
                                   {user.confirmed ? 'Confirmed' : 'Unconfirmed'}
@@ -1869,15 +1940,36 @@ const AdminDashboard: React.FC = () => {
                                   }`}>
                                   {user.blocked ? 'Blocked' : 'Active'}
                                 </Badge>
-                              </TableCell>
+                              </TableCell> */}
                               <TableCell className="text-right">
                                 <div className="flex justify-end space-x-2">
-                                  {/* Add user action buttons here (e.g., Edit, Delete) */}
                                   <Button
                                     variant="outline"
                                     size="sm"
                                     className="h-8 w-8 p-0"
-                                    disabled
+                                    onClick={() => {
+                                      setEditingUser(user);
+                                      setIsEditUserModalOpen(true);
+                                    }}
+                                    disabled={isUpdatingUser}
+                                    title="Edit User"
+                                    aria-label="Edit User"
+                                    aria-describedby="edit-user"
+                                    aria-labelledby="edit-user"
+                                    data-tooltip-id="edit-user"
+                                    data-tooltip-content="Edit User"
+                                    data-tooltip-place="top"
+                                    data-tooltip-type="info"
+                                    data-tooltip-delay-show={500}
+                                    data-tooltip-delay-hide={1000}
+                                    data-tooltip-interaction="true"
+                                    data-tooltip-variant="info"
+                                    data-tooltip-arrow="true"
+                                    data-tooltip-arrow-size={5}
+                                    data-tooltip-arrow-color="currentColor"
+                                    data-tooltip-arrow-offset={5}
+                                    data-tooltip-arrow-placement="top"
+                                    data-tooltip-arrow-rotate={0}
                                   >
                                     <Edit className="h-4 w-4 text-slate-400" />
                                   </Button>
@@ -1888,6 +1980,78 @@ const AdminDashboard: React.FC = () => {
                                     onClick={() => handleDeleteUser(user.id)}
                                   >
                                     <Trash2 className="h-4 w-4 text-red-500" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="pending-users">
+                <Card className="p-6 border border-slate-200">
+                  <h2 className="text-xl font-bold text-slate-800 mb-6">Registrasi Pengguna Baru (Menunggu Persetujuan)</h2>
+                  {loadingPendingUsers ? (
+                    <div className="py-4 text-center">
+                      <RefreshCw className="h-8 w-8 mx-auto text-slate-400 animate-spin" />
+                      <p className="mt-2 text-slate-500">Memuat data pengguna pending...</p>
+                    </div>
+                  ) : pendingUsersError ? (
+                    <div className="py-8 text-center text-red-500">{pendingUsersError}</div>
+                  ) : pendingUsers.length === 0 ? (
+                    <div className="py-8 text-center">
+                      <Users className="h-12 w-12 mx-auto text-slate-400 mb-2" />
+                      <p className="text-slate-600">Tidak ada pengguna baru yang menunggu persetujuan.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-lg border border-slate-200">
+                      <Table>
+                        <TableHeader className="bg-slate-50">
+                          <TableRow>
+                            <TableHead>Username</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Role</TableHead>
+                            <TableHead className="text-right">Aksi</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {pendingUsers.map(user => (
+                            <TableRow key={user.id} className="hover:bg-slate-50/80">
+                              <TableCell className="font-medium">{user.username}</TableCell>
+                              <TableCell>{user.email}</TableCell>
+                              <TableCell>
+                                <Badge className={`${user.role?.type === 'mahasiswa_it'
+                                  ? 'bg-green-100 text-green-800 hover:bg-green-100'
+                                  : user.role?.type === 'admin_it'
+                                    ? 'bg-blue-100 text-blue-800 hover:bg-blue-100'
+                                    : 'bg-slate-100 text-slate-800 hover:bg-slate-100'
+                                  }`}>
+                                  {user.role?.name || 'No Role'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end space-x-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 border-green-200 hover:bg-green-50 hover:text-green-600 hover:border-green-300"
+                                    onClick={() => handleApproveUser(user.id)}
+                                    disabled={isApprovingUser}
+                                  >
+                                    <Check className="h-4 w-4 text-green-500" />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 border-red-200 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
+                                    onClick={() => handleRejectUser(user.id)}
+                                    disabled={isRejectingUser}
+                                  >
+                                    <X className="h-4 w-4 text-red-500" />
                                   </Button>
                                 </div>
                               </TableCell>
@@ -1980,6 +2144,33 @@ const AdminDashboard: React.FC = () => {
                     </div>
                   </div>
                 </div>
+              </TabsContent>
+
+              <TabsContent value="wa-bot">
+                <Card className="p-6 border border-slate-200">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold text-slate-800">WhatsApp Bot Login</h2>
+                    <Button
+                      variant="outline"
+                      onClick={() => setWaIframeKey(prev => prev + 1)}
+                      className="ml-4 border-blue-300 hover:border-blue-400 hover:bg-blue-50"
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Refresh QR
+                    </Button>
+                  </div>
+                  <div className="w-full" style={{height: '80vh'}}>
+                    <iframe
+                      key={waIframeKey}
+                      src={`http://localhost:5001/wa?refresh=${waIframeKey}`}
+                      title="WhatsApp Bot"
+                      width="100%"
+                      height="100%"
+                      style={{ border: '1px solid #e5e7eb', borderRadius: '8px', minHeight: '600px' }}
+                    />
+                  </div>
+                  <p className="mt-2 text-slate-500 text-sm">Scan QR tersebut dengan menggunakan fitur add device pada aplikasi Whatsapp</p>
+                </Card>
               </TabsContent>
             </Tabs>
           </div>
