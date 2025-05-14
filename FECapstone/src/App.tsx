@@ -8,7 +8,7 @@ import './App.css';
 import { Toaster } from './components/ui/toaster';
 import React from 'react';
 import AdminDashboard from './pages/AdminDashboard';
-import RegisterPage from './pages/RegisterPage';
+// import RegisterPage from './pages/RegisterPage';
 
 
 interface StrapiUser {
@@ -80,7 +80,7 @@ function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+        {/* <Route path="/register" element={<RegisterPage />} /> */}
         
         {/* Protected Routes */}
     

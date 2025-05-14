@@ -280,11 +280,7 @@ const LoginPage = () => {
                   ) : 'Masuk'}
                 </Button>
                 <div className="text-center text-sm text-indigo-200">
-                  <span>Belum punya akun? </span>
-                  <a href="/register" className="font-medium text-white hover:text-indigo-200 hover:underline transition-colors">Daftar di sini</a>
-                </div>
-                <div className="text-center text-sm text-indigo-200">
-                  <span>Sudah punya akun tapi lupa password? </span>
+                  <span>Belum memiliki akun? </span>
                   <a href="https://wa.me/6281234511434" target="_blank" rel="noopener noreferrer" className="font-medium text-white hover:text-indigo-200 hover:underline transition-colors">Hubungi Admin</a>
                 </div>
               </CardFooter>

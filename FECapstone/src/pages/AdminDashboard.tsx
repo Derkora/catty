@@ -25,8 +25,7 @@ import {
   User,
   BookOpen,
   GraduationCap,
-  HelpCircle,
-  Check
+  HelpCircle
 } from 'lucide-react';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
@@ -233,13 +232,6 @@ const AdminDashboard: React.FC = () => {
   const [loadingLinks, setLoadingLinks] = useState(false);
   const [waIframeKey, setWaIframeKey] = useState(0); // State to force reload WhatsApp Bot iframe
 
-  // Pending user approval state
-  const [pendingUsers, setPendingUsers] = useState<any[]>([]);
-  const [loadingPendingUsers, setLoadingPendingUsers] = useState(false);
-  const [pendingUsersError, setPendingUsersError] = useState<string | null>(null);
-  const [isApprovingUser, setIsApprovingUser] = useState(false);
-  const [isRejectingUser, setIsRejectingUser] = useState(false);
-
   const fetchChatbotQuestions = async () => {
     setLoadingChatbotQuestions(true);
     try {
@@ -341,6 +333,38 @@ const AdminDashboard: React.FC = () => {
       }
     }
   };
+
+  useEffect(() => {
+    fetchFlaskDocuments();
+    fetchHistories();
+    fetchUsers();
+    fetchChatbotQuestions(); // Fetch questions from Strapi
+    fetchLinkList(); // Fetch uploaded links
+  }, [refreshKey]);
+
+  useEffect(() => {
+    if (flaskDocuments.length > 0) {
+      let filtered = [...flaskDocuments];
+
+      // Filter by search term
+      if (searchTerm) {
+        filtered = filtered.filter(doc =>
+          doc.namaDokumen.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      }
+
+      // Filter by document type (using jenisDokumenDisplay)
+      if (filterType !== 'all') {
+        filtered = filtered.filter(doc =>
+          doc.jenisDokumenDisplay === filterType
+        );
+      }
+
+      setFilteredFlaskDocuments(filtered);
+    } else {
+      setFilteredFlaskDocuments([]);
+    }
+  }, [flaskDocuments, searchTerm, filterType]);
 
   const fetchFlaskDocuments = async () => {
     setLoading(true);
@@ -455,103 +479,6 @@ const AdminDashboard: React.FC = () => {
       setHistories([]);
     }
   };
-
-  const fetchPendingUsers = async () => {
-    setLoadingPendingUsers(true);
-    setPendingUsersError(null);
-    try {
-      const token = localStorage.getItem('jwt');
-      const res = await fetch(`${import.meta.env.VITE_STRAPI_URL || 'http://localhost:1337'}/api/users`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Gagal memuat pengguna pending');
-      const data = await res.json();
-      setPendingUsers(data);
-    } catch (err: any) {
-      setPendingUsersError(err.message || 'Gagal memuat pengguna pending');
-    } finally {
-      setLoadingPendingUsers(false);
-    }
-  };
-
-  const handleApproveUser = async (userId: number) => {
-    setIsApprovingUser(true);
-    try {
-      const token = localStorage.getItem('jwt');
-      const res = await fetch(`${import.meta.env.VITE_STRAPI_URL || 'http://localhost:1337'}/api/users/${userId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ confirmed: true }),
-      });
-      if (!res.ok) throw new Error('Gagal mengkonfirmasi pengguna');
-      await fetchPendingUsers();
-    } catch (err) {
-      alert('Gagal mengkonfirmasi pengguna');
-    } finally {
-      setIsApprovingUser(false);
-    }
-  };
-
-  // Reject user (delete user)
-  const handleRejectUser = async (userId: number) => {
-    if (!window.confirm('Yakin ingin menolak dan menghapus pengguna ini?')) return;
-    setIsRejectingUser(true);
-    try {
-      const token = localStorage.getItem('jwt');
-      const res = await fetch(`${import.meta.env.VITE_STRAPI_URL || 'http://localhost:1337'}/api/users/${userId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Gagal menghapus pengguna');
-      await fetchPendingUsers();
-    } catch (err) {
-      alert('Gagal menghapus pengguna');
-    } finally {
-      setIsRejectingUser(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchFlaskDocuments();
-    fetchHistories();
-    fetchUsers();
-    fetchChatbotQuestions(); // Fetch questions from Strapi
-    fetchLinkList(); // Fetch uploaded links
-  }, [refreshKey]);
-
-  useEffect(() => {
-    if (flaskDocuments.length > 0) {
-      let filtered = [...flaskDocuments];
-
-      // Filter by search term
-      if (searchTerm) {
-        filtered = filtered.filter(doc =>
-          doc.namaDokumen.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-      }
-
-      // Filter by document type (using jenisDokumenDisplay)
-      if (filterType !== 'all') {
-        filtered = filtered.filter(doc =>
-          doc.jenisDokumenDisplay === filterType
-        );
-      }
-
-      setFilteredFlaskDocuments(filtered);
-    } else {
-      setFilteredFlaskDocuments([]);
-    }
-  }, [flaskDocuments, searchTerm, filterType]);
-
-  // Fetch pending users on mount and when switching to users tab
-  useEffect(() => {
-    if (activeTab === 'users' || activeTab === 'pending-users') {
-      fetchPendingUsers();
-    }
-  }, [activeTab]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -1217,10 +1144,6 @@ const AdminDashboard: React.FC = () => {
                 <TabsTrigger value="wa-bot" className="rounded-md py-2 px-3">
                   <span role="img" aria-label="whatsapp">💬</span>
                   WhatsApp Bot
-                </TabsTrigger>
-                <TabsTrigger value="pending-users" className="rounded-md py-2 px-3">
-                  <Users className="h-4 w-4 mr-2" />
-                  Registrasi Baru
                 </TabsTrigger>
               </TabsList>
 
@@ -1980,78 +1903,6 @@ const AdminDashboard: React.FC = () => {
                                     onClick={() => handleDeleteUser(user.id)}
                                   >
                                     <Trash2 className="h-4 w-4 text-red-500" />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="pending-users">
-                <Card className="p-6 border border-slate-200">
-                  <h2 className="text-xl font-bold text-slate-800 mb-6">Registrasi Pengguna Baru (Menunggu Persetujuan)</h2>
-                  {loadingPendingUsers ? (
-                    <div className="py-4 text-center">
-                      <RefreshCw className="h-8 w-8 mx-auto text-slate-400 animate-spin" />
-                      <p className="mt-2 text-slate-500">Memuat data pengguna pending...</p>
-                    </div>
-                  ) : pendingUsersError ? (
-                    <div className="py-8 text-center text-red-500">{pendingUsersError}</div>
-                  ) : pendingUsers.length === 0 ? (
-                    <div className="py-8 text-center">
-                      <Users className="h-12 w-12 mx-auto text-slate-400 mb-2" />
-                      <p className="text-slate-600">Tidak ada pengguna baru yang menunggu persetujuan.</p>
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto rounded-lg border border-slate-200">
-                      <Table>
-                        <TableHeader className="bg-slate-50">
-                          <TableRow>
-                            <TableHead>Username</TableHead>
-                            <TableHead>Email</TableHead>
-                            <TableHead>Role</TableHead>
-                            <TableHead className="text-right">Aksi</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {pendingUsers.map(user => (
-                            <TableRow key={user.id} className="hover:bg-slate-50/80">
-                              <TableCell className="font-medium">{user.username}</TableCell>
-                              <TableCell>{user.email}</TableCell>
-                              <TableCell>
-                                <Badge className={`${user.role?.type === 'mahasiswa_it'
-                                  ? 'bg-green-100 text-green-800 hover:bg-green-100'
-                                  : user.role?.type === 'admin_it'
-                                    ? 'bg-blue-100 text-blue-800 hover:bg-blue-100'
-                                    : 'bg-slate-100 text-slate-800 hover:bg-slate-100'
-                                  }`}>
-                                  {user.role?.name || 'No Role'}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <div className="flex justify-end space-x-2">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8 w-8 p-0 border-green-200 hover:bg-green-50 hover:text-green-600 hover:border-green-300"
-                                    onClick={() => handleApproveUser(user.id)}
-                                    disabled={isApprovingUser}
-                                  >
-                                    <Check className="h-4 w-4 text-green-500" />
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8 w-8 p-0 border-red-200 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
-                                    onClick={() => handleRejectUser(user.id)}
-                                    disabled={isRejectingUser}
-                                  >
-                                    <X className="h-4 w-4 text-red-500" />
                                   </Button>
                                 </div>
                               </TableCell>
