@@ -6,6 +6,7 @@ import logging
 from modules.convertit import process_pdf
 from queue import Queue
 import uuid
+import re
 
 headers = {
     "Content-Type": "application/json",
@@ -86,11 +87,24 @@ def upload_file_nonpdf():
             return jsonify({"error": "Jenis tidak valid"}), 400
 
         upload_dir = os.path.join(DATA_PATH, "original", group)
+        meta_dir = os.path.join(upload_dir, "meta")
         os.makedirs(upload_dir, exist_ok=True)
+        os.makedirs(meta_dir, exist_ok=True)
 
-        filename = f"{nama_dokumen}_{uuid.uuid4().hex[:8]}{os.path.splitext(file.filename)[1]}"
+        # Ganti karakter berbahaya dalam nama file
+        safe_nama = nama_dokumen.replace("/", "_").replace("\\", "_")
+        unique_id = uuid.uuid4().hex[:8]
+        ext = os.path.splitext(file.filename)[1]
+        filename = f"{safe_nama}_{unique_id}{ext}"
         save_path = os.path.join(upload_dir, filename)
+
+        # Simpan file
         file.save(save_path)
+
+        # Simpan metadata ke dalam folder meta
+        meta_path = os.path.join(meta_dir, filename + ".meta")
+        with open(meta_path, "w", encoding="utf-8") as meta_file:
+            meta_file.write(nama_dokumen)
 
         logger.info(f"Non-PDF file uploaded to: {save_path}")
         return jsonify({
@@ -107,8 +121,9 @@ def upload_file_nonpdf():
 def list_files():
     try:
         category = request.args.get('category', 'umum')
-        original_path = os.path.join("data", "uploads", "original", category)
-        markdown_path = os.path.join("data", "uploads", "markdown", category)
+        original_path = os.path.join(DATA_PATH, "original", category)
+        meta_path = os.path.join(original_path, "meta")
+        markdown_path = os.path.join(DATA_PATH, "markdown", category)
         result = {}
 
         if not os.path.exists(original_path):
@@ -118,10 +133,31 @@ def list_files():
         all_files = os.listdir(original_path)
         files_grouped = {}
 
-        # Kelompokkan file berdasarkan ekstensi
         for f in all_files:
-            ext = os.path.splitext(f)[1].lower().lstrip('.')
-            files_grouped.setdefault(ext, []).append(f)
+            full_path = os.path.join(original_path, f)
+            if os.path.isfile(full_path) and not f.endswith('.meta'):
+                ext = os.path.splitext(f)[1].lower().lstrip('.')
+                base_name = os.path.splitext(f)[0]
+
+                # Cek apakah ada file meta di dalam /meta
+                meta_file = f + ".meta"
+                meta_file_path = os.path.join(meta_path, meta_file)
+
+                original_name = base_name
+                if os.path.exists(meta_file_path):
+                    try:
+                        with open(meta_file_path, "r", encoding="utf-8") as meta:
+                            content = meta.read().strip()
+                            if content:
+                                original_name = content
+                    except Exception as e:
+                        logger.error(f"Gagal baca .meta file {meta_file_path}: {e}")
+
+                files_grouped.setdefault(ext, []).append({
+                    "filename": f,
+                    "original_name": original_name,
+                    "link": f"/static/uploads/original/{category}/{f}"
+                })
 
         # Markdown folders
         markdown_folders = []
@@ -138,13 +174,11 @@ def list_files():
         result["files_by_type"] = {
             ext: {
                 "count": len(files),
-                "files": files,
-                "links": [
-                    f"/static/uploads/original/{category}/{f}" for f in files
-                ]
+                "files": files
             }
             for ext, files in files_grouped.items()
         }
+
         result["markdown_folders"] = markdown_folders
 
         return jsonify(result), 200
@@ -152,32 +186,38 @@ def list_files():
         logger.error("Error in list_files():", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
-@crudit_bp.route('/api/files/<folder>', methods=['DELETE'])
+@crudit_bp.route('/api/files/<path:folder>', methods=['DELETE'])
 def delete_file(folder):
     try:
         category = request.args.get('category', 'umum')
         original_path = os.path.join(DATA_PATH, "original", category)
+        meta_path = os.path.join(original_path, "meta")
 
-        # Cari file PDF yang cocok
         pdf_files = [f for f in os.listdir(original_path) if f.endswith('.pdf')]
         matched_pdf = next((f for f in pdf_files if f.startswith(folder)), None)
 
-        # Cek juga untuk file non-PDF
         all_files = os.listdir(original_path)
         matched_non_pdf = next((f for f in all_files if f.startswith(folder) and not f.endswith('.pdf')), None)
 
         deleted_pdf = None
         deleted_md_folder = None
         deleted_non_pdf = None
+        deleted_meta_files = []
 
         if matched_pdf:
-            # Hapus PDF
-            pdf_file_path = os.path.join(original_path, matched_pdf)
-            os.remove(pdf_file_path)
+            file_path = os.path.join(original_path, matched_pdf)
+            os.remove(file_path)
             deleted_pdf = matched_pdf
-            logger.info(f"Deleted PDF file: {pdf_file_path}")
+            logger.info(f"Deleted PDF file: {file_path}")
 
-            # Hapus folder markdown jika ada
+            meta_file = matched_pdf + ".meta"
+            meta_file_path = os.path.join(meta_path, meta_file)
+            if os.path.isfile(meta_file_path):
+                os.remove(meta_file_path)
+                deleted_meta_files.append(meta_file)
+                logger.info(f"Deleted meta file: {meta_file_path}")
+
+            # Hapus markdown folder
             markdown_base = os.path.join(DATA_PATH, "markdown", category)
             for md_folder in os.listdir(markdown_base):
                 if md_folder.startswith(folder):
@@ -188,28 +228,30 @@ def delete_file(folder):
                     break
 
         elif matched_non_pdf:
-            # Hapus file non-PDF
             file_path = os.path.join(original_path, matched_non_pdf)
             os.remove(file_path)
             deleted_non_pdf = matched_non_pdf
             logger.info(f"Deleted non-PDF file: {file_path}")
 
+            meta_file = matched_non_pdf + ".meta"
+            meta_file_path = os.path.join(meta_path, meta_file)
+            if os.path.isfile(meta_file_path):
+                os.remove(meta_file_path)
+                deleted_meta_files.append(meta_file)
+                logger.info(f"Deleted meta file: {meta_file_path}")
         else:
             return jsonify({"error": "File tidak ditemukan"}), 404
 
-        # Jika PDF dihapus → rebuild vector (chroma)
+        # Trigger rebuild
         if deleted_pdf:
             rebuild_url = os.environ.get("REBUILD_URL", "http://localhost:5000/api/rebuild")
-            headers = {
-                "Content-Type": "application/json",
-                "X-Requested-With": "XMLHttpRequest"
-            }
+            headers = {"Content-Type": "application/json"}
             try:
                 response = requests.post(rebuild_url, json={"group": category}, headers=headers)
                 if response.status_code == 200:
                     logger.info(f"Triggered vector rebuild for category: {category}")
                 else:
-                    logger.error(f"Failed to trigger rebuild for {category}: {response.text}")
+                    logger.error(f"Failed to trigger rebuild: {response.text}")
             except Exception as e:
                 logger.warning(f"Gagal trigger rebuild untuk {category}: {e}")
 
@@ -217,6 +259,7 @@ def delete_file(folder):
             "status": "deleted",
             "deleted_pdf": deleted_pdf,
             "deleted_non_pdf": deleted_non_pdf,
+            "deleted_meta_files": deleted_meta_files,
             "deleted_md_folder": deleted_md_folder
         }), 200
 
@@ -239,13 +282,17 @@ def upload_link():
         folder_path = os.path.join(DATA_PATH, "markdown", category)
         os.makedirs(folder_path, exist_ok=True)
 
-        unique_id = uuid.uuid4().hex[:8]
-        filename = f"{nama}_{unique_id}.md"
+        # Simpan nama asli untuk ditampilkan nanti
+        original_nama = nama
 
+        # Ganti karakter berbahaya dalam nama file
+        safe_nama = nama.replace("/", "_").replace("\\", "_")
+        unique_id = uuid.uuid4().hex[:8]
+        filename = f"{safe_nama}_{unique_id}.md"
         filepath = os.path.join(folder_path, filename)
 
         with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(f"Nama: {nama}\n")
+            f.write(f"Nama: {original_nama}\n")  # tampilkan yang asli di dalam file
             f.write(f"Jenis: {jenis}\n")
             f.write(f"Deskripsi: {deskripsi}\n")
             f.write(f"Link: {link}\n")
@@ -262,6 +309,7 @@ def upload_link():
             logger.warning(f"Gagal trigger rebuild link: {e}")
 
         return jsonify({"message": "Link berhasil disimpan", "filename": filename}), 201
+
     except FileNotFoundError as e:
         logger.error("Folder tidak ditemukan:", exc_info=True)
         return jsonify({"error": "Folder tidak ditemukan: " + str(e)}), 404
@@ -271,7 +319,7 @@ def upload_link():
     except Exception as e:
         logger.error("Error saat upload link:", exc_info=True)
         return jsonify({"error": "Terjadi kesalahan: " + str(e)}), 500
-
+    
 @crudit_bp.route('/api/link', methods=['GET'])
 def list_links():
     try:
@@ -291,12 +339,31 @@ def list_links():
         for f in link_files:
             try:
                 with open(os.path.join(folder_path, f), 'r', encoding='utf-8') as file:
-                    content = file.read()
-                results.append({
-                    "filename": f,
-                    "content": content,
-                    "url": f"/static/uploads/markdown/{category}/{f}"
-                })
+                    lines = file.readlines()
+                    data = {
+                        "nama": "",
+                        "jenis": "",
+                        "deskripsi": "",
+                        "link": ""
+                    }
+                    for line in lines:
+                        if line.startswith("Nama:"):
+                            data["nama"] = line.replace("Nama:", "").strip()
+                        elif line.startswith("Jenis:"):
+                            data["jenis"] = line.replace("Jenis:", "").strip()
+                        elif line.startswith("Deskripsi:"):
+                            data["deskripsi"] = line.replace("Deskripsi:", "").strip()
+                        elif line.startswith("Link:"):
+                            data["link"] = line.replace("Link:", "").strip()
+
+                    results.append({
+                        "filename": f,
+                        "nama": data["nama"],
+                        "jenis": data["jenis"],
+                        "deskripsi": data["deskripsi"],
+                        "link": data["link"],
+                        "url": f"/static/uploads/markdown/{category}/{f}"
+                    })
             except Exception as e:
                 logger.error(f"Error membaca file {f}: {e}", exc_info=True)
 
@@ -305,13 +372,12 @@ def list_links():
         logger.error("Gagal mengambil daftar link:", exc_info=True)
         return jsonify({"error": "Terjadi kesalahan: " + str(e)}), 500
 
-
 @crudit_bp.route('/api/link/<filename>', methods=['DELETE'])
 def delete_link(filename):
     try:
         category = request.args.get('category', 'umum')
         folder_path = os.path.join(DATA_PATH, "markdown", category)
-        full_path = os.path.join(folder_path, filename)  # langsung pakai filename
+        full_path = os.path.join(folder_path, filename)
 
         if not os.path.exists(full_path):
             return jsonify({"error": "File tidak ditemukan"}), 404
@@ -338,6 +404,7 @@ def delete_link(filename):
     except Exception as e:
         logger.error("Gagal hapus link:", exc_info=True)
         return jsonify({"error": "Terjadi kesalahan: " + str(e)}), 500
+
 
 @crudit_bp.route('/api/health/crudit', methods=['GET'])
 def health_check_crudit():

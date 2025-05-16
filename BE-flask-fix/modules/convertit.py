@@ -43,7 +43,7 @@ def get_total_pages(pdf_path):
         raise
 
 
-def process_pdf(temp_pdf_path, group, model_dict):
+def process_pdf(temp_pdf_path, group, nama_dokumen, folder_name, model_dict):
     try:
         logger.info(f"Memulai proses PDF: {temp_pdf_path} untuk grup: {group}")
 
@@ -82,47 +82,46 @@ def process_pdf(temp_pdf_path, group, model_dict):
             del rendered, converter
             torch.cuda.empty_cache()
 
-        # Pindahkan file ke folder original
-        final_path = os.path.join(ORIGINAL_DIR, group, filename)
-        create_directory(os.path.dirname(final_path))
+        # Jika proses convert berhasil, pindahkan PDF dari TEMP ke ORIGINAL
+        original_dir = os.path.join(ORIGINAL_DIR, group)
+        create_directory(original_dir)
+        final_path = os.path.join(original_dir, filename)
         shutil.move(temp_pdf_path, final_path)
-        logger.info(f"Berhasil memproses dan memindahkan PDF ke: {final_path}")
+        logger.info(f"File PDF berhasil dipindahkan ke: {final_path}")
+
+        # Simpan metadata ke folder meta di ORIGINAL
+        meta_dir = os.path.join(original_dir, "meta")
+        create_directory(meta_dir)
+        meta_path = os.path.join(meta_dir, f"{filename}.meta")
+        with open(meta_path, "w", encoding="utf-8") as f:
+            f.write(nama_dokumen)
+
+        # TODO: Panggil fungsi rebuild_chroma di sini jika perlu
 
     except Exception:
         logger.exception(f"Error saat memproses PDF: {temp_pdf_path}")
+        # Jika error, hapus file temp jika ada
         if os.path.exists(temp_pdf_path):
             os.remove(temp_pdf_path)
             logger.warning(f"File PDF gagal diproses dan dihapus: {temp_pdf_path}")
         raise
 
-
 def process_queue():
     model_dict = create_model_dict()
     while True:
-        pdf_path, group = task_queue.get()
+        temp_pdf_path, group, nama_dokumen, folder_name = task_queue.get()
         try:
-            process_pdf(pdf_path, group, model_dict)
+            process_pdf(temp_pdf_path, group, nama_dokumen, folder_name, model_dict)
         except Exception:
             logger.error("Queue error", exc_info=True)
         finally:
             task_queue.task_done()
-            if task_queue.empty():
-                # Kirim sinyal rebuild hanya untuk grup yang terlibat dalam proses
-                rebuild_url = REBUILD_URL
-                headers = {
-                    "Content-Type": "application/json",
-                    "X-Requested-With": "XMLHttpRequest"
-                }
-                try:
-                    # Hanya kirim rebuild jika grup terlibat
-                    response = requests.post(rebuild_url, json={"group": group}, headers=headers)
-                    if response.status_code == 200:
-                        logger.info(f"Rebuild signal sent for {group}")
-                    else:
-                        logger.warning(f"Failed to send rebuild signal for {group}: {response.status_code}")
-                except Exception:
-                    logger.exception("Failed to send rebuild signal")
-
+            # Trigger rebuild vectorstore setelah selesai
+            try:
+                requests.post(REBUILD_URL, json={"group": group}, headers=headers)
+                logger.info(f"Rebuild signal sent for {group}")
+            except Exception:
+                logger.exception("Failed to send rebuild signal")
 
 @convert_bp.route('/api/convert', methods=['POST'])
 def upload_file():
@@ -134,7 +133,8 @@ def upload_file():
 
         nama_dokumen = request.form.get('namaDokumen')
         doc_id = str(uuid.uuid4())[:8]
-        safe_name = f"{nama_dokumen}_{doc_id}"
+        safe_name = nama_dokumen.replace("/", "_").replace("\\", "_")
+        folder_name = f"{safe_name}_{doc_id}"
         file = request.files.get('file')
         jenis = request.form.get('jenisDokumen')
 
@@ -144,16 +144,21 @@ def upload_file():
 
         group = group_mapping[jenis]
         create_directory(TEMP_DIR)
-        temp_path = os.path.join(TEMP_DIR, f"{safe_name}.pdf")
+
+        # Simpan file PDF di TEMP dulu, belum ke ORIGINAL
+        temp_path = os.path.join(TEMP_DIR, f"{folder_name}.pdf")
         file.save(temp_path)
         logger.info(f"File berhasil diunggah ke temp: {temp_path}")
 
-        task_queue.put((temp_path, group))
-        output_dir = os.path.join(MARKDOWN_DIR, group, safe_name)
+        # Kirim file TEMP ke task queue untuk proses convert dan pembuatan vectorstore
+        task_queue.put((temp_path, group, nama_dokumen, folder_name))
+
+        # Tentukan folder output markdown yang akan dibuat nanti di proses
+        output_dir = os.path.join(MARKDOWN_DIR, group, folder_name)
 
         return jsonify({
             "message": "File uploaded and processing started",
-            "original_file": temp_path,
+            "temp_file": temp_path,
             "output_markdown_dir": output_dir,
             "doc_id": doc_id
         }), 202

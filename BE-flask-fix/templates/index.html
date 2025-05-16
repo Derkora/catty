@@ -433,29 +433,39 @@
     function loadFileList() {
       const groups = ["umum", "mahasiswa"];
       const fileList = document.getElementById("file-list");
-      fileList.innerHTML = "<h3>Daftar File</h3><table border='1' style='width:100%; border-collapse: collapse;'><thead><tr><th>Nama File</th><th>Kategori</th><th>Aksi</th></tr></thead><tbody></tbody></table>";
+      fileList.innerHTML = `
+        <h3>Daftar File</h3>
+        <table border='1' style='width:100%; border-collapse: collapse;'>
+          <thead><tr><th>Nama Asli</th><th>Kategori</th><th>Aksi</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      `;
       const tableBody = fileList.querySelector("tbody");
-  
+    
       groups.forEach(group => {
         fetch(`/api/files?category=${group}`, {
           method: "GET",
           headers: {
-            "X-Requested-With": "XMLHttpRequest"  // Header tambahan
+            "X-Requested-With": "XMLHttpRequest"
           }
         })
           .then(res => res.json())
           .then(data => {
             const allTypes = data.files_by_type || {};
+    
             for (const [ext, info] of Object.entries(allTypes)) {
-              info.files.forEach(file => {
-                const uuidPart = file.split('_')[1]?.split('.')[0]; // Ambil UUID
+              info.files.forEach(fileObj => {
+                const file = fileObj.filename;
+                const originalName = fileObj.original_name || file;
+                const uuidPart = file.split('_').pop()?.split('.')[0]; // Ambil UUID dari nama file
+              
                 if (!uuidPart) return;
               
                 fetch("/api/encrypt", {
                   method: "POST",
                   headers: {
                     "Content-Type": "application/json",
-                    "X-Requested-With": "XMLHttpRequest"  // Header tambahan
+                    "X-Requested-With": "XMLHttpRequest"
                   },
                   body: JSON.stringify({ uuid: uuidPart })
                 })
@@ -463,15 +473,13 @@
                 .then(result => {
                   const token = result.token;
                   const fileUrl = `/get-file/${token}`;
-                  const fileName = file;
               
                   const row = document.createElement("tr");
                   row.innerHTML = `
-                    <td><a href="${fileUrl}" target="_blank">${fileName}</a></td>
+                    <td><a href="${fileUrl}" target="_blank">${originalName}</a></td>
                     <td>${group}</td>
                     <td><button class="delete-btn" onclick="deleteFile('${file.split('.').slice(0, -1).join('.')}', '${group}')">Hapus</button></td>
                   `;
-              
                   tableBody.appendChild(row);
                 })
                 .catch(err => {
@@ -485,25 +493,33 @@
           });
       });
     }
+    
   
     // Hapus file
     function deleteFile(folder, group) {
       console.log("Menghapus folder/file:", folder, "dari grup:", group);
-  
-      fetch(`/api/files/${folder}?category=${group}`, {
+
+      const encodedFolder = encodeURIComponent(folder);
+
+      fetch(`/api/files/${encodedFolder}?category=${group}`, {
         method: "DELETE",
         headers: {
-          "X-Requested-With": "XMLHttpRequest"  // Header tambahan
+          "X-Requested-With": "XMLHttpRequest"
         }
       })
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) {
+            throw new Error(`Gagal menghapus file: Status ${res.status}`);
+          }
+          return res.json();
+        })
         .then(data => {
           alert("Berhasil dihapus!");
           loadFileList();
         })
         .catch(err => {
           console.error("Gagal menghapus file:", err);
-          alert("Penghapusan gagal");
+          alert("Penghapusan gagal: " + err.message);
         });
     }
   
@@ -576,15 +592,14 @@
               throw new Error("Data link tidak ditemukan di respon API.");
             }
             (data.links || []).forEach(item => {
-              const lines = item.content.split("\n");
-              const nama = (lines.find(l => l.startsWith("Nama:")) || "").replace("Nama:", "").trim();
-              const link = (lines.find(l => l.startsWith("Link:")) || "").replace("Link:", "").trim();
+              const nama = item.nama || "";
+              const link = item.link || "";
               const row = document.createElement("tr");
               row.innerHTML = `
                 <td>${nama}</td>
                 <td><a href="${link}" target="_blank">${link}</a></td>
                 <td>${group}</td>
-                <td><button class="delete-btn" onclick="deleteLink('${item.filename.replace('_link.md', '')}', '${group}')">Hapus</button></td>
+                <td><button class="delete-btn" onclick="deleteLink('${item.filename}', '${group}')">Hapus</button></td>
               `;
               tableBody.appendChild(row);
             });
@@ -594,7 +609,7 @@
             alert(`Gagal memuat link dari kategori ${group}: ${err.message}`);
           });
       });
-    }
+    }    
     
     function deleteLink(filename, group) {
       fetch(`/api/link/${filename}?category=${group}`, {
