@@ -13,6 +13,7 @@ from langchain.schema import Document
 from langchain.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
 from langchain_community.llms import Ollama
+import torch
 
 import chromadb
 
@@ -41,7 +42,7 @@ PROMPT_TEMPLATE_WITH_CONTEXT = {
             "Setiap jawaban di jawab dengan struktur yang baik, informatif, dan detail namun tetap natural dan menarik untuk dibaca."
             "Jika ada bahasa yang tidak pantas, berikan teguran secara sopan."
             "Selalu respon dengan positif dan menawarkan bantuan untuk User dalam menjawab pertanyaan User terkait Teknologi Informasi."
-            "Respon jawaban bedasarkan dan hanya bedasarkan context saja. Jika jawaban tidak ditemukan di dalam context, respon dengan \"Maaf, saya tidak menemukan informasi tersebut dalam materi kuliah ini.\""
+            "Respon jawaban bedasarkan dan hanya bedasarkan context yang diberikan saja dan tidak keluar sama sekali dari context. Jika jawaban tidak ditemukan di dalam context, respon dengan dan hanya dengan \"Maaf, saya tidak menemukan informasi tersebut dalam materi kuliah ini.\""
             "Respon dalam bentuk markdown yang terstruktur dan rapi. Hanya respon dengan isi dari markdownya saja tanpa blok kode. Tanpa menggunakan '```markdown .... ```'"
         )
     ),
@@ -58,7 +59,7 @@ PROMPT_TEMPLATE_WITH_CONTEXT = {
             "Setiap jawaban di jawab dengan struktur yang baik, informatif, dan detail namun tetap natural dan menarik untuk dibaca."
             "Jika ada bahasa yang tidak pantas, berikan teguran secara sopan."
             "Selalu respon dengan positif dan menawarkan bantuan untuk User dalam menjawab pertanyaan User terkait Teknologi Informasi."
-            "Respon jawaban bedasarkan dan hanya bedasarkan context saja. Jika jawaban tidak ditemukan di dalam context, respon dengan \"Maaf, saya tidak menemukan informasi tersebut dalam materi kuliah ini.\""
+            "Respon jawaban bedasarkan dan hanya bedasarkan context yang diberikan saja dan tidak keluar sama sekali dari context. Jika jawaban tidak ditemukan di dalam context, respon dengan dan hanya dengan \"Maaf, saya tidak menemukan informasi tersebut dalam materi kuliah ini.\""
             "Respon dalam bentuk markdown yang terstruktur dan rapi. Hanya respon dengan isi dari markdownya saja tanpa blok kode. Tanpa menggunakan '```markdown .... ```'"
         )
     )
@@ -267,6 +268,7 @@ def api_chat():
             response_time=response_time
         )
 
+        torch.cuda.empty_cache()
         return jsonify({"answer": full_answer}), 200
 
     except Exception as e:
