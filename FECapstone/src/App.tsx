@@ -50,26 +50,21 @@ const ProtectedRoute = ({
     }
   }
 
-  console.log("ProtectedRoute: User data from localStorage:", user);
 
   const isAuthenticated = token !== null && user !== null;
 
   if (!isAuthenticated) {
-    console.log("ProtectedRoute: Not authenticated, redirecting to /login");
     return <Navigate to="/login" replace />;
   }
 
   if (allowedRoles && allowedRoles.length > 0) {
     const userRole = user?.role?.name;
-    console.log("ProtectedRoute: Checking roles. User role:", userRole, "Allowed roles:", allowedRoles);
     
     if (!userRole || !allowedRoles.includes(userRole)) {
-      console.log("ProtectedRoute: Not authorized, redirecting to /"); 
       return <Navigate to="/" replace />; 
     }
   }
   
-  console.log("ProtectedRoute: Access granted.");
   return children;
 };
 

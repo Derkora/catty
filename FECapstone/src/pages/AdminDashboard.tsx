@@ -55,6 +55,18 @@ interface StrapiChatbotQuestion { // Ensuring flat structure based on API respon
   publishedAt?: string;
 }
 
+interface UploadedLink {
+  id: string;         // for React key
+  nama: string;       // document name
+  link: string;       // URL
+  kategori: 'umum' | 'mahasiswa';
+  jenis: string;      // e.g. "Dokumen_Administrasi"
+  deskripsi: string;  // maybe empty string if none
+  filename: string;   // the exact filename (with extension) for DELETE
+}
+
+
+
 interface FlaskDocument {
   key: string;
   namaDokumen: string;
@@ -219,6 +231,48 @@ const AdminDashboard: React.FC = () => {
   const [currentQuestionText, setCurrentQuestionText] = useState(''); // For the edit input field
   const [loadingChatbotQuestions, setLoadingChatbotQuestions] = useState(true);
 
+  // 1) Add this state just below your other useState hooks:
+  interface EditUserForm {
+    id: number;
+    username: string;
+    email: string;
+    role: number;
+    currentPassword?: string;
+    password?: string;
+  }
+  const [editUserForm, setEditUserForm] = useState<EditUserForm>({
+    id: 0,
+    username: '',
+    email: '',
+    role: 0,
+    currentPassword: '',
+    password: '',
+  });
+
+  // 2) Immediately below that, add the generic input‐change handler:
+  const handleUpdateUserInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+    setEditUserForm(prev => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const openEditModal = (user: User) => {
+    setEditingUser(user);
+    setEditUserForm({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role.id,    // assuming user.role.id is a number
+      password: '',
+    });
+    setIsEditUserModalOpen(true);
+  };
+
+
   // State for Link Upload
   const [linkForm, setLinkForm] = useState({
     nama: '',
@@ -227,7 +281,8 @@ const AdminDashboard: React.FC = () => {
     deskripsi: '',
     link: '',
   });
-  const [uploadedLinks, setUploadedLinks] = useState<any[]>([]); // Define a proper interface later
+  const [uploadedLinks, setUploadedLinks] = useState<UploadedLink[]>([]);
+  // Define a proper interface later
   const [isSubmittingLink, setIsSubmittingLink] = useState(false);
   const [loadingLinks, setLoadingLinks] = useState(false);
   const [waIframeKey, setWaIframeKey] = useState(0); // State to force reload WhatsApp Bot iframe
@@ -316,7 +371,7 @@ const AdminDashboard: React.FC = () => {
     }
 
 
-    const localeToDelete = "en"; 
+    const localeToDelete = "en";
 
     if (window.confirm(`Yakin ingin menghapus pertanyaan: "${questionToDelete.teksPertanyaan}" (Dokumen ID: ${questionToDelete.documentId}, Locale: ${localeToDelete})?`)) {
       const token = localStorage.getItem('token');
@@ -369,73 +424,79 @@ const AdminDashboard: React.FC = () => {
   const fetchFlaskDocuments = async () => {
     setLoading(true);
     try {
-      const flaskCategories: ('umum' | 'mahasiswa')[] = ["umum", "mahasiswa"];
+      const flaskCategories: ('umum' | 'mahasiswa')[] = ['umum', 'mahasiswa'];
       let allFlaskDocs: FlaskDocument[] = [];
 
       for (const category of flaskCategories) {
-        const response = await axios.get<FilesResponse>(`${FLASK_API_BASE_URL}/api/files?category=${category}`, {
-          headers: { "X-Requested-With": "XMLHttpRequest" }
-        });
+        const res = await axios.get<FilesResponse>(
+          `${FLASK_API_BASE_URL}/api/files?category=${category}`,
+          { headers: { 'X-Requested-With': 'XMLHttpRequest' } }
+        );
 
-        if (response.data && response.data.files_by_type) {
-          for (const [ext, info] of Object.entries<FileInfo>(response.data.files_by_type)) {
-            if (info.files && Array.isArray(info.files)) {
-              for (const filename of info.files) { // filename is like "MyDoc_uuid.pdf"
-                const uuidPart = filename.split('_').pop()?.split('.')[0];
-                if (!uuidPart) {
-                  console.warn(`Could not extract UUID from filename: ${filename}`);
+        if (res.data?.files_by_type) {
+          for (const [ext, info] of Object.entries(res.data.files_by_type)) {
+            if (Array.isArray(info.files)) {
+              for (const fileObj of info.files) {
+                // fileObj is { filename, link, original_name }
+                const { filename, original_name } = fileObj;
+                const uuid = filename.split('_').pop()?.split('.')[0];
+                if (!uuid) {
+                  console.warn(`Cannot extract UUID from ${filename}`);
                   continue;
                 }
 
                 try {
-                  const tokenResponse = await axios.post(
+                  // encrypt to get secure token
+                  const tokenRes = await axios.post(
                     `${FLASK_API_BASE_URL}/api/encrypt`,
-                    { uuid: uuidPart }, // Send as JSON
+                    { uuid },
                     {
                       headers: {
-                        "Content-Type": "application/json",
-                        "X-Requested-With": "XMLHttpRequest"
-                      },
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                      }
                     }
                   );
 
-                  const token = tokenResponse.data.token;
-                  const fileUrl = `${FLASK_API_BASE_URL}/get-file/${token}`;
-                  const filenameWithoutExt = filename.substring(0, filename.lastIndexOf('.')) || filename;
+                  const fileUrl = `${FLASK_API_BASE_URL}/get-file/${tokenRes.data.token}`;
+                  const nameToShow = original_name || filename;
+                  const filenameNoExt = filename.replace(/\.[^/.]+$/, '');
 
-                  const doc: FlaskDocument = {
-                    key: filename, // Use full filename as key
-                    namaDokumen: filename,
-                    jenisDokumenDisplay: category === "umum" ? "Dokumen Umum" : "Dokumen Mahasiswa",
+                  allFlaskDocs.push({
+                    key: filename,
+                    namaDokumen: nameToShow,
+                    jenisDokumenDisplay:
+                      category === 'umum' ? 'Dokumen Umum' : 'Dokumen Mahasiswa',
                     flaskCategory: category,
-                    fileUrl: fileUrl,
-                    filenameForDelete: filenameWithoutExt, // e.g., "MyDoc_uuid"
-                    fileExtension: ext.startsWith('.') ? ext.substring(1) : ext,
-                    createdAt: new Date().toISOString(), // Flask doesn't provide this, fake it
-                  };
-                  allFlaskDocs.push(doc);
-                } catch (err) {
-                  console.error(`Gagal mengenkripsi UUID untuk file ${filename}:`, err);
+                    fileUrl,
+                    filenameForDelete: filenameNoExt,
+                    fileExtension: ext.replace(/^\./, ''),
+                    createdAt: new Date().toISOString()
+                  });
+                } catch (e) {
+                  console.error(`Failed to encrypt UUID ${uuid}:`, e);
                 }
               }
             }
           }
         }
       }
+
       setFlaskDocuments(allFlaskDocs);
-    } catch (error) {
-      console.error('Error fetching Flask documents:', error);
+    } catch (e) {
+      console.error('Error fetching Flask documents:', e);
       setFlaskDocuments([]);
     } finally {
       setLoading(false);
     }
   };
 
+
   const fetchHistories = async () => {
     try {
-      console.log('Attempting to fetch histories from Strapi...');
+  
       const token = localStorage.getItem('token');
-      console.log('Using token:', token);
+
 
       const response = await axios.get<StrapiResponse<StrapiHistoryItem>>(`${API_BASE_URL}/api/histories?populate=users_permissions_user`, {
         headers: {
@@ -443,13 +504,10 @@ const AdminDashboard: React.FC = () => {
         }
       });
 
-      console.log('Histories response:', response);
-      console.log('Histories data:', response.data);
-      console.log('Histories data structure:', JSON.stringify(response.data, null, 2));
+
 
       if (response.data && Array.isArray(response.data.data)) {
         const transformedHistories = response.data.data.map(item => {
-          console.log('Processing history item:', item);
           const userType = item.userType === 'mahasiswa' ? 'mahasiswa' : 'public';
           return {
             id: item.id,
@@ -468,7 +526,6 @@ const AdminDashboard: React.FC = () => {
           } as History;
         });
 
-        console.log('Transformed histories:', transformedHistories);
         setHistories(transformedHistories);
       } else {
         console.error('Invalid data structure received from Strapi');
@@ -676,45 +733,48 @@ const AdminDashboard: React.FC = () => {
   };
 
   const fetchLinkList = async () => {
-    setLoadingLinks(true);
-    const categories = ["umum", "mahasiswa"];
-    let allLinks: any[] = [];
+    setLoading(true);
     try {
-      for (const category of categories) {
-        const response = await axios.get(`${FLASK_API_BASE_URL}/api/link?category=${category}`, {
-          headers: { "X-Requested-With": "XMLHttpRequest" }
-        });
-        if (response.data && response.data.links) {
-          const categoryLinks = response.data.links.map((item: any) => {
-            const lines = item.content.split("\n");
-            const nama = (lines.find((l: string) => l.startsWith("Nama:")) || "").replace("Nama:", "").trim();
-            const link = (lines.find((l: string) => l.startsWith("Link:")) || "").replace("Link:", "").trim();
-            return {
-              id: item.filename, // Or generate a unique ID
-              filename: item.filename.replace('_link.md', ''),
-              nama,
-              link,
-              kategori: category, // Add category to the object
-              deskripsi: (lines.find((l: string) => l.startsWith("Deskripsi:")) || "").replace("Deskripsi:", "").trim(),
-              jenis: (lines.find((l: string) => l.startsWith("Jenis:")) || "").replace("Jenis:", "").trim(),
-            };
+      const categories: ('umum' | 'mahasiswa')[] = ['umum', 'mahasiswa'];
+      const allLinks: UploadedLink[] = [];
+
+      for (const cat of categories) {
+        const res = await axios.get<{
+          links: Array<{
+            nama: string;
+            link: string;
+            filename: string;
+            jenis?: string;
+            deskripsi?: string;
+          }>;
+        }>(
+          `${FLASK_API_BASE_URL}/api/link?category=${cat}`,
+          { headers: { 'X-Requested-With': 'XMLHttpRequest' } }
+        );
+
+        (res.data.links || []).forEach(item => {
+          allLinks.push({
+            id: item.filename,
+            nama: item.nama,
+            link: item.link,
+            kategori: cat,
+            jenis: item.jenis || '',
+            deskripsi: item.deskripsi || '',
+            filename: item.filename,
           });
-          allLinks = [...allLinks, ...categoryLinks];
-        }
+        });
       }
+
       setUploadedLinks(allLinks);
-    } catch (error) {
-      console.error('Error fetching link list:', error);
-      toast({
-        title: "Gagal Memuat Daftar Link",
-        description: "Terjadi kesalahan saat mengambil data link.",
-        variant: "destructive",
-      });
+    } catch (err) {
+      console.error('Error fetching link list:', err);
       setUploadedLinks([]);
     } finally {
-      setLoadingLinks(false);
+      setLoading(false);
     }
   };
+
+
 
   const handleDeleteLink = async (filename: string, group: string) => {
     if (window.confirm(`Yakin ingin menghapus link dokumen: ${filename} dari kategori ${group}?`)) {
@@ -784,14 +844,12 @@ const AdminDashboard: React.FC = () => {
   const fetchUsers = async () => {
     setLoadingUsers(true);
     try {
-      console.log('Attempting to fetch users from Strapi...');
       const token = localStorage.getItem('token');
       const response = await axios.get(`${API_BASE_URL}/api/users?populate=role`, {
         headers: {
           Authorization: `Bearer ${token}`,
         }
       });
-      console.log('Strapi users response:', response);
 
       if (response.data && Array.isArray(response.data)) {
         setUsers(response.data);
@@ -863,7 +921,6 @@ const AdminDashboard: React.FC = () => {
         }
       );
 
-      console.log('User created:', response.data);
       toast({
         title: "Berhasil!",
         description: "User Mahasiswa berhasil ditambahkan!",
@@ -926,83 +983,70 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleEditUser = (userToEdit: any) => {
-    setEditingUser({
-      id: userToEdit.id,
-      username: userToEdit.username,
-      email: userToEdit.email,
-      role: userToEdit.role?.id || 3, 
-    });
-    setIsEditUserModalOpen(true);
-  };
-
-  const handleUpdateUserInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setEditingUser((prev: any) => ({ ...prev, [name]: value }));
-  };
-
-  const handleUpdateUserRoleChange = (value: string) => {
-    setEditingUser((prev: any) => ({ ...prev, role: parseInt(value, 10) }));
-  };
-
   const handleUpdateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingUser) return;
 
     setIsUpdatingUser(true);
     const token = localStorage.getItem('token');
-
     if (!token) {
-      toast({
-        title: "Authentication Error",
-        description: "Admin token not found. Please log in again.",
-        variant: "destructive",
-      });
+      toast({ title: "Auth Error", description: "Please log in again.", variant: "destructive" });
       setIsUpdatingUser(false);
       return;
     }
 
-    toast({
-      title: "Processing",
-      description: `Updating user ${editingUser.username}...`,
-    });
-
-    const payload: any = {
-      username: editingUser.username,
-      email: editingUser.email,
-      role: editingUser.role,
-    };
-
-    if (editingUser.password && editingUser.password.trim() !== '') {
-      payload.password = editingUser.password;
-    }
-
+    // 1) Update username, email, role:
     try {
-      await axios.put(`${API_BASE_URL}/api/users/${editingUser.id}`, payload, {
-        headers: {
-          Authorization: `Bearer ${token}`,
+      await axios.put(
+        `${API_BASE_URL}/api/users/${editingUser.id}`,
+        {
+          data: {
+            username: editingUser.username,
+            email: editingUser.email,
+            role: editingUser.role,       // must be just the role ID
+          }
         },
-      });
-      toast({
-        title: "Success!",
-        description: `User ${editingUser.username} has been updated.`,
-        variant: "success",
-      });
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      // 2) (Optional) Change password via change-password endpoint
+      if (editingUser.password?.trim()) {
+        await axios.put(
+          `${API_BASE_URL}/api/auth/change-password`,
+          {
+            data: {
+              currentPassword: editingUser.currentPassword,  // if you collect old PW
+              password: editingUser.password,
+              passwordConfirmation: editingUser.password,
+            }
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }
+        );
+      }
+
+      toast({ title: "Success", description: "User updated.", variant: "success" });
       setIsEditUserModalOpen(false);
-      setEditingUser(null);
-      fetchUsers(); // Refresh the user list
-    } catch (error: any) {
-      console.error('Error updating user:', error);
-      const errorMessage = error.response?.data?.error?.message || 'Failed to update user. Please try again.';
+      fetchUsers();
+    } catch (err: any) {
+      console.error("Error updating user:", err.response?.data || err);
       toast({
         title: "Update Failed",
-        description: `Error: ${errorMessage}`,
-        variant: "destructive",
+        description: err.response?.data?.error?.message || err.message,
+        variant: "destructive"
       });
     } finally {
       setIsUpdatingUser(false);
     }
   };
+
 
   const formatFileSize = (bytes: number | undefined) => {
     if (typeof bytes !== 'number') return 'N/A';
@@ -1160,161 +1204,175 @@ const AdminDashboard: React.FC = () => {
                         <div className="mt-3 sm:mt-0 flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
                           <div className="relative w-full sm:w-64">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                        <Input
-                          placeholder="Cari dokumen..."
-                          className="pl-9"
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                        />
+                            <Input
+                              placeholder="Cari dokumen..."
+                              className="pl-9"
+                              value={searchTerm}
+                              onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                          </div>
+                          <Select
+                            value={filterType} // "all", "Dokumen_Umum", "Dokumen_Mahasiswa"
+                            onValueChange={setFilterType}
+                          >
+                            <SelectTrigger className="w-full sm:w-48">
+                              <div className="flex items-center">
+                                <Filter className="h-4 w-4 mr-2 text-slate-400" />
+                                <SelectValue placeholder="Filter" />
+                              </div>
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">Semua Dokumen</SelectItem>
+                              <SelectItem value="Dokumen Umum">Umum</SelectItem>
+                              <SelectItem value="Dokumen Mahasiswa">Mahasiswa</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
-                      <Select
-                        value={filterType} // "all", "Dokumen_Umum", "Dokumen_Mahasiswa"
-                        onValueChange={setFilterType}
-                      >
-                        <SelectTrigger className="w-full sm:w-48">
-                          <div className="flex items-center">
-                            <Filter className="h-4 w-4 mr-2 text-slate-400" />
-                            <SelectValue placeholder="Filter" />
-                          </div>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Semua Dokumen</SelectItem>
-                          <SelectItem value="Dokumen Umum">Umum</SelectItem>
-                          <SelectItem value="Dokumen Mahasiswa">Mahasiswa</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
 
-                  {loading ? (
-                    <div className="py-4 text-center">
-                      <RefreshCw className="h-8 w-8 mx-auto text-slate-400 animate-spin" />
-                      <p className="mt-2 text-slate-500">Memuat data dokumen...</p>
-                    </div>
-                  ) : filteredFlaskDocuments.length === 0 ? (
-                    <div className="py-8 text-center">
-                      <FileText className="h-12 w-12 mx-auto text-slate-400 mb-2" />
-                      <p className="text-slate-600">Belum ada dokumen tersedia</p>
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto rounded-lg border border-slate-200">
-                      <Table>
-                        <TableHeader className="bg-slate-50">
-                          <TableRow>
-                            <TableHead>Nama Dokumen</TableHead>
-                            <TableHead>Jenis</TableHead>
-                            
-                            <TableHead>File</TableHead>
-                            <TableHead className="text-right">Aksi</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {filteredFlaskDocuments.map(doc => (
-                            <TableRow key={doc.key} className="hover:bg-slate-50/80">
-                              <TableCell className="font-medium">{doc.namaDokumen}</TableCell>
-                              <TableCell>
-                                <Badge className={`${doc.jenisDokumenDisplay === 'Dokumen Umum'
-                                  ? 'bg-blue-100 text-blue-800 hover:bg-blue-100'
-                                  : 'bg-green-100 text-green-800 hover:bg-green-100'
-                                  }`}>
-                                  {doc.jenisDokumenDisplay}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="text-blue-600 border-blue-300 hover:bg-blue-50 hover:border-blue-400 flex items-center"
-                                  onClick={() => setPreviewDocument(doc)}
-                                >
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  <span className="text-sm">Lihat Info</span>
-                                </Button>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <div className="flex justify-end space-x-2">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8 w-8 p-0 border-red-200 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
-                                    onClick={() => handleDeleteDocument(doc.filenameForDelete, doc.flaskCategory)}
-                                  >
-                                    <Trash2 className="h-4 w-4 text-red-500" />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
-                </Card>
-                  </TabsContent>
-                  <TabsContent value="linkDokumen">
-                  <Card className="p-6 border border-slate-200">
-                        <h3 className="text-lg font-medium text-slate-700 mb-4">Daftar Link Dokumen Tersimpan</h3>
-                        {loadingLinks ? (
-                          <div className="py-4 text-center">
-                            <RefreshCw className="h-8 w-8 mx-auto text-slate-400 animate-spin" />
-                            <p className="mt-2 text-slate-500">Memuat daftar link...</p>
-                          </div>
-                        ) : uploadedLinks.length === 0 ? (
-                          <div className="py-8 text-center">
-                            <FileText className="h-12 w-12 mx-auto text-slate-400 mb-2" />
-                            <p className="text-slate-600">Belum ada link dokumen yang diunggah.</p>
-                          </div>
-                        ) : (
-                          <div className="overflow-x-auto rounded-lg border border-slate-200">
-                            <Table>
-                              <TableHeader className="bg-slate-50">
-                                <TableRow>
-                                  <TableHead>Nama Dokumen</TableHead>
-                                  <TableHead>Link</TableHead>
-                                  <TableHead>Kategori</TableHead>
-                                  <TableHead>Jenis</TableHead>
-                                  <TableHead>Deskripsi</TableHead>
-                                  <TableHead className="text-right">Aksi</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {uploadedLinks.map(linkItem => (
-                                  <TableRow key={linkItem.id} className="hover:bg-slate-50/80">
-                                    <TableCell className="font-medium">{linkItem.nama}</TableCell>
-                                    <TableCell>
-                                      <a href={linkItem.link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline break-all">
-                                        {linkItem.link}
-                                      </a>
-                                    </TableCell>
-                                    <TableCell>
-                                      <Badge className={`${linkItem.kategori === 'umum'
-                                        ? 'bg-blue-100 text-blue-800'
-                                        : 'bg-green-100 text-green-800'
-                                        }`}>
-                                        {linkItem.kategori === 'umum' ? 'Dok. Umum' : 'Dok. Mahasiswa'}
-                                      </Badge>
-                                    </TableCell>
-                                    <TableCell>{linkItem.jenis.replace(/_/g, ' ')}</TableCell>
-                                    <TableCell className="text-sm text-slate-600 max-w-xs">
-                                      <CollapsibleMessage text={linkItem.deskripsi || '-'} maxLength={100} />
-                                    </TableCell>
-                                    <TableCell className="text-right">
+                      {loading ? (
+                        <div className="py-4 text-center">
+                          <RefreshCw className="h-8 w-8 mx-auto text-slate-400 animate-spin" />
+                          <p className="mt-2 text-slate-500">Memuat data dokumen...</p>
+                        </div>
+                      ) : filteredFlaskDocuments.length === 0 ? (
+                        <div className="py-8 text-center">
+                          <FileText className="h-12 w-12 mx-auto text-slate-400 mb-2" />
+                          <p className="text-slate-600">Belum ada dokumen tersedia</p>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto rounded-lg border border-slate-200">
+                          <Table>
+                            <TableHeader className="bg-slate-50">
+                              <TableRow>
+                                <TableHead>Nama Dokumen</TableHead>
+                                <TableHead>Jenis</TableHead>
+
+                                <TableHead>File</TableHead>
+                                <TableHead className="text-right">Aksi</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {filteredFlaskDocuments.map(doc => (
+                                <TableRow key={doc.key} className="hover:bg-slate-50/80">
+                                  <TableCell className="font-medium">{doc.namaDokumen}</TableCell>
+                                  <TableCell>
+                                    <Badge className={`${doc.jenisDokumenDisplay === 'Dokumen Umum'
+                                      ? 'bg-blue-100 text-blue-800 hover:bg-blue-100'
+                                      : 'bg-green-100 text-green-800 hover:bg-green-100'
+                                      }`}>
+                                      {doc.jenisDokumenDisplay}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="text-blue-600 border-blue-300 hover:bg-blue-50 hover:border-blue-400 flex items-center"
+                                      onClick={() => setPreviewDocument(doc)}
+                                    >
+                                      <Eye className="h-4 w-4 mr-2" />
+                                      <span className="text-sm">Lihat Info</span>
+                                    </Button>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <div className="flex justify-end space-x-2">
                                       <Button
                                         variant="outline"
                                         size="sm"
                                         className="h-8 w-8 p-0 border-red-200 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
-                                        onClick={() => handleDeleteLink(linkItem.filename, linkItem.kategori)}
+                                        onClick={() => handleDeleteDocument(doc.filenameForDelete, doc.flaskCategory)}
                                       >
                                         <Trash2 className="h-4 w-4 text-red-500" />
                                       </Button>
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </div>
-                        )}
-                      </Card>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </Card>
+                  </TabsContent>
+                  <TabsContent value="linkDokumen">
+                    <Card className="p-6 border border-slate-200">
+                      <h3 className="text-lg font-medium text-slate-700 mb-4">Daftar Link Dokumen Tersimpan</h3>
+                      {loadingLinks ? (
+                        <div className="py-4 text-center">
+                          <RefreshCw className="h-8 w-8 mx-auto text-slate-400 animate-spin" />
+                          <p className="mt-2 text-slate-500">Memuat daftar link...</p>
+                        </div>
+                      ) : uploadedLinks.length === 0 ? (
+                        <div className="py-8 text-center">
+                          <FileText className="h-12 w-12 mx-auto text-slate-400 mb-2" />
+                          <p className="text-slate-600">Belum ada link dokumen yang diunggah.</p>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto rounded-lg border border-slate-200">
+                          <Table>
+                            <TableHeader className="bg-slate-50">
+                              <TableRow>
+                                <TableHead>Nama Dokumen</TableHead>
+                                <TableHead>Link</TableHead>
+                                <TableHead>Kategori</TableHead>
+                                <TableHead>Jenis</TableHead>
+                                <TableHead>Deskripsi</TableHead>
+                                <TableHead className="text-right">Aksi</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {uploadedLinks.map(linkItem => (
+                                <TableRow key={linkItem.id} className="hover:bg-slate-50/80">
+                                  <TableCell className="font-medium">{linkItem.nama}</TableCell>
+                                  <TableCell>
+                                    <a
+                                      href={linkItem.link}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-blue-600 hover:underline break-all"
+                                    >
+                                      {linkItem.link}
+                                    </a>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge
+                                      className={
+                                        linkItem.kategori === 'umum'
+                                          ? 'bg-blue-100 text-blue-800'
+                                          : 'bg-green-100 text-green-800'
+                                      }
+                                    >
+                                      {linkItem.kategori === 'umum' ? 'Dok. Umum' : 'Dok. Mahasiswa'}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>{linkItem.jenis.replace(/_/g, ' ')}</TableCell>
+                                  <TableCell className="text-sm text-slate-600 max-w-xs">
+                                    <CollapsibleMessage
+                                      text={linkItem.deskripsi || '-'}
+                                      maxLength={100}
+                                    />
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 w-8 p-0 border-red-200 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
+                                      onClick={() =>
+                                        handleDeleteLink(linkItem.filename, linkItem.kategori)
+                                      }
+                                    >
+                                      <Trash2 className="h-4 w-4 text-red-500" />
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+
+                          </Table>
+                        </div>
+                      )}
+                    </Card>
                   </TabsContent>
                 </Tabs>
                 {/* Simplified Document Preview Modal for FlaskDocument */}
@@ -1593,7 +1651,7 @@ const AdminDashboard: React.FC = () => {
                   </div>
                   {/* Chatbot Questions Management UI */}
                   <div className="space-y-4">
-                    
+
                     {loadingChatbotQuestions ? (
                       <div className="text-center py-8 text-slate-500">
                         <RefreshCw className="h-8 w-8 mx-auto text-slate-400 animate-spin" />
@@ -2010,7 +2068,7 @@ const AdminDashboard: React.FC = () => {
                       Refresh QR
                     </Button>
                   </div>
-                  <div className="w-full" style={{height: '80vh'}}>
+                  <div className="w-full" style={{ height: '80vh' }}>
                     <iframe
                       key={waIframeKey}
                       src={`http://localhost:5001/wa?refresh=${waIframeKey}`}
@@ -2044,17 +2102,19 @@ const AdminDashboard: React.FC = () => {
       </Dialog>
 
       {/* Edit User Modal */}
+      {/* Edit User Modal */}
       {editingUser && (
         <Dialog open={isEditUserModalOpen} onOpenChange={setIsEditUserModalOpen}>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
-              <DialogTitle>Edit User: {editingUser.username}</DialogTitle>
+              <DialogTitle>Edit User: {editUserForm.username}</DialogTitle>
               <DialogDescription>
                 Update the user's details below. Password field is optional.
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleUpdateUser}>
               <div className="grid gap-4 py-4">
+                {/* Username */}
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="edit-username" className="text-right">
                     Username
@@ -2062,13 +2122,15 @@ const AdminDashboard: React.FC = () => {
                   <Input
                     id="edit-username"
                     name="username"
-                    value={editingUser.username}
+                    value={editUserForm.username}
                     onChange={handleUpdateUserInputChange}
                     className="col-span-3"
                     required
                     minLength={3}
                   />
                 </div>
+
+                {/* Email */}
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="edit-email" className="text-right">
                     Email
@@ -2077,12 +2139,14 @@ const AdminDashboard: React.FC = () => {
                     id="edit-email"
                     name="email"
                     type="email"
-                    value={editingUser.email}
+                    value={editUserForm.email}
                     onChange={handleUpdateUserInputChange}
                     className="col-span-3"
                     required
                   />
                 </div>
+
+                {/* Password */}
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="edit-password" className="text-right">
                     Password
@@ -2092,18 +2156,26 @@ const AdminDashboard: React.FC = () => {
                     name="password"
                     type="password"
                     placeholder="Leave blank to keep current"
-                    onChange={handleUpdateUserInputChange} // editingUser.password will be updated here
+                    value={editUserForm.password}
+                    onChange={handleUpdateUserInputChange}
                     className="col-span-3"
                     minLength={6}
                   />
                 </div>
+
+                {/* Role */}
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="edit-role" className="text-right">
                     Role
                   </Label>
                   <Select
-                    value={editingUser.role.toString()}
-                    onValueChange={handleUpdateUserRoleChange}
+                    name="role"
+                    value={String(editUserForm.role)}
+                    onValueChange={val =>
+                      handleUpdateUserInputChange({
+                        target: { name: 'role', value: val }
+                      } as any)
+                    }
                   >
                     <SelectTrigger id="edit-role" className="col-span-3">
                       <SelectValue placeholder="Pilih role" />
@@ -2115,11 +2187,24 @@ const AdminDashboard: React.FC = () => {
                   </Select>
                 </div>
               </div>
+
               <DialogFooter>
-                <Button className='bg-red-500 text-white hover:bg-red-300' type="button" variant="outline" onClick={() => { setIsEditUserModalOpen(false); setEditingUser(null); }}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="bg-red-500 text-white hover:bg-red-300"
+                  onClick={() => {
+                    setIsEditUserModalOpen(false);
+                    setEditingUser(null);
+                  }}
+                >
                   Batal
                 </Button>
-                <Button type="submit" disabled={isUpdatingUser} className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700">
+                <Button
+                  type="submit"
+                  disabled={isUpdatingUser}
+                  className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700"
+                >
                   {isUpdatingUser ? (
                     <>
                       <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
@@ -2134,6 +2219,7 @@ const AdminDashboard: React.FC = () => {
           </DialogContent>
         </Dialog>
       )}
+
 
       <Footer />
     </div>

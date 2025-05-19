@@ -20,14 +20,21 @@ interface FlaskDocument {
   fileExtension: string; 
 }
 
+interface FileObj {
+  filename: string;
+  link: string;
+  original_name: string;
+}
+
 interface FilesResponse {
   files_by_type: {
-    [key: string]: {
-      files: string[];
+    [ext: string]: {
       count: number;
+      files: FileObj[];
     };
   };
 }
+
 interface FileInfo {
   files: string[];
   count: number;
@@ -107,7 +114,6 @@ const Dashboard: React.FC = () => {
   const [selectedDocument, setSelectedDocument] = useState<FlaskDocument | null>(null);
   const [flaskDocuments, setFlaskDocuments] = useState<FlaskDocument[]>([]);
   const [filteredFlaskDocuments, setFilteredFlaskDocuments] = useState<FlaskDocument[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeMainTab, setActiveMainTab] = useState('files'); 
 
   const [uploadedLinks, setUploadedLinks] = useState<UploadedLink[]>([]);
@@ -175,126 +181,114 @@ const Dashboard: React.FC = () => {
   }, [flaskDocuments, uploadedLinks, searchTerm, filterType, sortOption]);
 
   const fetchFlaskDocuments = async () => {
-    setLoading(true);
-    try {
-      const flaskCategories: ('umum' | 'mahasiswa')[] = ["umum", "mahasiswa"];
-      let allFlaskDocs: FlaskDocument[] = [];
+  setLoadingDocuments(true);
+  try {
+    const categories: ('umum' | 'mahasiswa')[] = ['umum','mahasiswa'];
+    const allDocs: FlaskDocument[] = [];
 
-      for (const category of flaskCategories) {
-        const response = await axios.get<FilesResponse>(`${FLASK_API_BASE_URL}/api/files?category=${category}`, {
-          headers: { "X-Requested-With": "XMLHttpRequest" }
-        });
+    for (const category of categories) {
+      const res = await axios.get<FilesResponse>(
+        `${FLASK_API_BASE_URL}/api/files?category=${category}`,
+        { headers: { 'X-Requested-With': 'XMLHttpRequest' } }
+      );
 
-        if (response.data && response.data.files_by_type) {
-          for (const [ext, info] of Object.entries<FileInfo>(response.data.files_by_type)) {
-            if (info.files && Array.isArray(info.files)) {
-              for (const filename of info.files) { 
-                const uuidPart = filename.split('_').pop()?.split('.')[0];
-                if (!uuidPart) {
-                  console.warn(`Could not extract UUID from filename: ${filename}`);
-                  continue;
-                }
+      for (const [ext, info] of Object.entries(res.data.files_by_type || {})) {
+        if (!Array.isArray(info.files)) continue;
 
-                try {
-                  const tokenResponse = await axios.post(
-                    `${FLASK_API_BASE_URL}/api/encrypt`,
-                    { uuid: uuidPart }, 
-                    {
-                      headers: {
-                        "Content-Type": "application/json",
-                        "X-Requested-With": "XMLHttpRequest"
-                      },
-                    }
-                  );
+        for (const fileObj of info.files) {
+          const { filename, original_name } = fileObj;
+          const uuid = filename.split('_').pop()?.split('.')[0];
+          if (!uuid) continue;
 
-                  const token = tokenResponse.data.token;
-                  const fileUrl = `${FLASK_API_BASE_URL}/get-file/${token}`;
-                  const filenameWithoutExt = filename.substring(0, filename.lastIndexOf('.')) || filename;
-
-                  const doc: FlaskDocument = {
-                    key: filename, 
-                    namaDokumen: filename,
-                    jenisDokumenDisplay: category === "umum" ? "Dokumen Umum" : "Dokumen Mahasiswa",
-                    flaskCategory: category,
-                    fileUrl: fileUrl,
-                    filenameForDelete: filenameWithoutExt, 
-                    fileExtension: ext.startsWith('.') ? ext.substring(1) : ext,
-                    // createdAt: new Date().toISOString(), // Removed
-                  };
-                  allFlaskDocs.push(doc);
-                } catch (err) {
-                  console.error(`Gagal mengenkripsi UUID untuk file ${filename}:`, err);
+          try {
+            const tokenRes = await axios.post(
+              `${FLASK_API_BASE_URL}/api/encrypt`,
+              { uuid },
+              {
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-Requested-With': 'XMLHttpRequest'
                 }
               }
-            }
+            );
+            const fileUrl = `${FLASK_API_BASE_URL}/get-file/${tokenRes.data.token}`;
+            allDocs.push({
+              key: filename,
+              namaDokumen: original_name || filename,
+              jenisDokumenDisplay: category === 'umum'
+                ? 'Dokumen Umum'
+                : 'Dokumen Mahasiswa',
+              flaskCategory: category,
+              fileUrl,
+              filenameForDelete: filename.replace(/\.[^/.]+$/, ''),
+              fileExtension: ext.replace(/^\./, ''),
+            });
+          } catch (err) {
+            console.error(`Encrypt failed for ${filename}`, err);
           }
         }
       }
-      setFlaskDocuments(allFlaskDocs);
-    } catch (error) {
-      console.error('Error fetching Flask flaskDocuments:', error);
-      setFlaskDocuments([]);
-    } finally {
-      setLoading(false);
     }
-  };
+
+    setFlaskDocuments(allDocs);
+  } catch (err) {
+    console.error('Error fetching docs', err);
+    setFlaskDocuments([]);
+  } finally {
+    setLoadingDocuments(false);
+  }
+};
+
 
   const fetchLinkList = async () => {
-    setLoadingLinks(true);
-    const categories = ["umum", "mahasiswa"];
-    let allLinks: UploadedLink[] = []; 
-    try {
-      for (const category of categories) {
-        const response = await axios.get(`${FLASK_API_BASE_URL}/api/link?category=${category}`, {
-          headers: { "X-Requested-With": "XMLHttpRequest" }
+  setLoadingLinks(true);
+  try {
+    const categories: ('umum'|'mahasiswa')[] = ['umum','mahasiswa'];
+    const allLinks: UploadedLink[] = [];
+
+    for (const category of categories) {
+      const res = await axios.get<{
+        links: Array<{
+          nama: string;
+          link: string;
+          filename: string;
+          jenis?: string;
+          deskripsi?: string;
+        }>;
+      }>(
+        `${FLASK_API_BASE_URL}/api/link?category=${category}`,
+        { headers: { 'X-Requested-With': 'XMLHttpRequest' } }
+      );
+
+      (res.data.links || []).forEach(item => {
+        allLinks.push({
+          id: item.filename,
+          filename: item.filename,
+          nama: item.nama,
+          link: item.link,
+          kategori: category,
+          jenis: item.jenis || '',
+          deskripsi: item.deskripsi || '',
         });
-        if (response.data && response.data.links) {
-          const categoryLinks = response.data.links.map((item: any) => {
-            const lines = item.content.split("\n");
-            const nama = (lines.find((l: string) => l.startsWith("Nama:")) || "").replace("Nama:", "").trim();
-            const linkUrl = (lines.find((l: string) => l.startsWith("Link:")) || "").replace("Link:", "").trim();
-            const deskripsi = (lines.find((l: string) => l.startsWith("Deskripsi:")) || "").replace("Deskripsi:", "").trim();
-            const jenis = (lines.find((l: string) => l.startsWith("Jenis:")) || "").replace("Jenis:", "").trim();
-            return {
-              id: item.filename, 
-              filename: item.filename.replace('_link.md', ''),
-              nama,
-              link: linkUrl,
-              kategori: category as 'umum' | 'mahasiswa',
-              deskripsi,
-              jenis,
-            };
-          });
-          allLinks = [...allLinks, ...categoryLinks];
-        }
-      }
-      setUploadedLinks(allLinks);
-    } catch (error) {
-      console.error('Error fetching link list:', error);
-      toast({ 
-        title: "Gagal Memuat Daftar Link",
-        description: "Terjadi kesalahan saat mengambil data link.",
-        variant: "destructive",
       });
-      setUploadedLinks([]);
-    } finally {
-      setLoadingLinks(false);
     }
-  };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('id-ID', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
+    setUploadedLinks(allLinks);
+  } catch (err) {
+    console.error('Error fetching links', err);
+    toast({
+      title: 'Gagal Memuat Daftar Link',
+      description: 'Terjadi kesalahan saat mengambil data link.',
+      variant: 'destructive'
     });
-  };
+    setUploadedLinks([]);
+  } finally {
+    setLoadingLinks(false);
+  }
+};
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B';
-    else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-    else return (bytes / 1048576).toFixed(1) + ' MB';
-  };
+
+
 
   const getFileIcon = (extension: string) => {
     switch (extension?.toLowerCase()) {
@@ -337,20 +331,20 @@ const Dashboard: React.FC = () => {
     setSelectedDocument(null);
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
-        <div className="flex flex-col items-center">
-          <div className="h-24 w-24 relative">
-            <div className="absolute inset-0 rounded-full border-t-4 border-b-4 border-blue-500 animate-spin"></div>
-            <div className="absolute inset-[6px] rounded-full border-r-4 border-l-4 border-indigo-500 animate-spin animate-reverse"></div>
-            <div className="absolute inset-[12px] rounded-full border-t-4 border-purple-500 animate-spin animate-delay-150"></div>
-          </div> 
-          <p className="mt-6 text-lg font-medium text-blue-600 animate-pulse">Memuat Dashboard...</p>
-        </div> 
-      </div> 
-    );
-  } 
+  // if (loading) {
+  //   return (
+  //     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+  //       <div className="flex flex-col items-center">
+  //         <div className="h-24 w-24 relative">
+  //           <div className="absolute inset-0 rounded-full border-t-4 border-b-4 border-blue-500 animate-spin"></div>
+  //           <div className="absolute inset-[6px] rounded-full border-r-4 border-l-4 border-indigo-500 animate-spin animate-reverse"></div>
+  //           <div className="absolute inset-[12px] rounded-full border-t-4 border-purple-500 animate-spin animate-delay-150"></div>
+  //         </div> 
+  //         <p className="mt-6 text-lg font-medium text-blue-600 animate-pulse">Memuat Dashboard...</p>
+  //       </div> 
+  //     </div> 
+  //   );
+  // } 
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -482,7 +476,7 @@ const Dashboard: React.FC = () => {
                 <TabsContent value="files">
                   <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-slate-200/50 p-6 md:p-8">
                     {/* Content for File Dokumen Saya is already here */}
-                    {loading ? (
+                    {loadingDocuments ? (
                       <div className="py-16 text-center">
                     <div className="h-16 w-16 mx-auto relative">
                       <div className="absolute inset-0 rounded-full border-t-4 border-blue-500 animate-spin"></div>
@@ -700,7 +694,6 @@ const Dashboard: React.FC = () => {
                         <p className="font-medium text-slate-800 mb-1">{selectedDocument.namaDokumen}</p>
                         <div className="flex items-center text-xs text-slate-500">
                           <span className="px-2 py-1 bg-slate-100 rounded-full">{selectedDocument.fileExtension}</span>
-                          {/* File size is not available in FlaskDocument, so removing it for now */}
                         </div>
                       </div>
                     </div>
@@ -716,7 +709,6 @@ const Dashboard: React.FC = () => {
                         <ExternalLink className="h-4 w-4 mr-2" />
                         Preview / Download
                       </Button>
-                      {/* The handleDownloadFile was for Strapi URLs, Flask URL is direct */}
                     </div>
                   </div>
                 ) : (
