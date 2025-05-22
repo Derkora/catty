@@ -22,6 +22,16 @@ logger = logging.getLogger(__name__)
 UPLOADS_MARKDOWN = "data/uploads/markdown"
 VECTOR_DIR = "data/vectorstores"
 
+# Initialize heavy resources once
+embed = HuggingFaceEmbeddings()
+llm = Ollama(model="qwen2.5:7b-instruct", base_url="http://host.docker.internal:11434")
+# llm = Ollama(model="qwen2.5:7b-instruct", base_url="http://localhost:11434", temperature=0.8, top_p=0.7)
+
+# Global vectorstore cache with thread lock
+vectorstore_cache = {
+    'mahasiswa': None,
+    'umum': None
+}
 vectorstore_lock = Lock()
 
 '''
@@ -41,7 +51,7 @@ PROMPT_TEMPLATE_WITH_CONTEXT = {
             "Setiap jawaban di jawab dengan struktur yang baik, informatif, dan detail namun tetap natural dan menarik untuk dibaca."
             "Jika ada bahasa yang tidak pantas, berikan teguran secara sopan."
             "Selalu respon dengan positif dan menawarkan bantuan untuk User dalam menjawab pertanyaan User terkait Teknologi Informasi."
-            "Respon jawaban bedasarkan dan hanya bedasarkan context saja. Jika jawaban tidak ditemukan di dalam context, respon dengan \"Maaf, saya tidak menemukan informasi tersebut dalam materi kuliah ini.\""
+            "Respon jawaban bedasarkan dan hanya bedasarkan context yang diberikan saja dan tidak keluar sama sekali dari context. Jika jawaban tidak ditemukan di dalam context, respon dengan dan hanya dengan \"Maaf, saya tidak menemukan informasi tersebut dalam materi kuliah ini.\""
             "Respon dalam bentuk markdown yang terstruktur dan rapi. Hanya respon dengan isi dari markdownya saja tanpa blok kode. Tanpa menggunakan '```markdown .... ```'"
         )
     ),
@@ -58,11 +68,12 @@ PROMPT_TEMPLATE_WITH_CONTEXT = {
             "Setiap jawaban di jawab dengan struktur yang baik, informatif, dan detail namun tetap natural dan menarik untuk dibaca."
             "Jika ada bahasa yang tidak pantas, berikan teguran secara sopan."
             "Selalu respon dengan positif dan menawarkan bantuan untuk User dalam menjawab pertanyaan User terkait Teknologi Informasi."
-            "Respon jawaban bedasarkan dan hanya bedasarkan context saja. Jika jawaban tidak ditemukan di dalam context, respon dengan \"Maaf, saya tidak menemukan informasi tersebut dalam materi kuliah ini.\""
+            "Respon jawaban bedasarkan dan hanya bedasarkan context yang diberikan saja dan tidak keluar sama sekali dari context. Jika jawaban tidak ditemukan di dalam context, respon dengan dan hanya dengan \"Maaf, saya tidak menemukan informasi tersebut dalam materi kuliah ini.\""
             "Respon dalam bentuk markdown yang terstruktur dan rapi. Hanya respon dengan isi dari markdownya saja tanpa blok kode. Tanpa menggunakan '```markdown .... ```'"
         )
     )
 }
+
 
 '''
 Di sini juga da perubahan
@@ -72,11 +83,17 @@ Di sini juga da perubahan
 -Zidan
 '''
 def rebuild_chroma(group=None):
-    
+
     chromadb.api.client.SharedSystemClient.clear_system_cache()
 
     try:
         with vectorstore_lock:
+            # Invalidate cache for rebuilt groups
+            if group:
+                vectorstore_cache[group] = None
+            else:
+                vectorstore_cache.update({'mahasiswa': None, 'umum': None})
+
             for group_name in ['mahasiswa', 'umum']:
                 if group and group != group_name:
                     continue  # Skip non-target groups
@@ -176,6 +193,17 @@ def reference(response):
 
     return reminder
 
+
+def get_vectorstore(role_group: str):
+    with vectorstore_lock:
+        if vectorstore_cache[role_group] is None:
+            vector_dir = os.path.join(VECTOR_DIR, role_group)
+            vectorstore_cache[role_group] = Chroma(
+                persist_directory=vector_dir,
+                embedding_function=embed
+            )
+        return vectorstore_cache[role_group]
+
 @chat_bp.route('/api/rebuild', methods=['POST'])
 def api_rebuild():
     try:
@@ -211,20 +239,17 @@ def api_chat():
 
         logger.info(f"Chat request received | Role: {role} | Question: {question}")
 
-        # Setup embedding & vectordb
-        embed = HuggingFaceEmbeddings()
+        # Get role-specific vectorstore
         role_group = "mahasiswa" if role == "mahasiswa" else "umum"
-        vector_dir = os.path.join(VECTOR_DIR, role_group)
-        vectordb = Chroma(persist_directory=vector_dir, embedding_function=embed)
+        vectordb = get_vectorstore(role_group)
 
-        # Ambil dokumen terkait
+        # Retrieve documents
         with vectorstore_lock:
-            vectordb = Chroma(persist_directory=vector_dir, embedding_function=embed)
             retrieved_docs = vectordb.similarity_search(question, k=K)
 
-        # Ambil prompt sesuai role
+        # Prepare QA chain
         prompt = PROMPT_TEMPLATE_WITH_CONTEXT.get(role, PROMPT_TEMPLATE_WITH_CONTEXT["general"])
-        llm = Ollama(model="qwen2.5:7b-instruct", base_url="http://host.docker.internal:11434")
+        logger.info(f"Isi prompr: {prompt}")
 
         '''
         Ada beberapa perubahan di sini:
@@ -239,7 +264,7 @@ def api_chat():
                 llm=llm,
                 chain_type="stuff",
                 retriever=vectordb.as_retriever(search_kwargs={"k": K}),
-                return_source_documents=True, 
+                return_source_documents=True,
                 chain_type_kwargs={"prompt": prompt}
             )
             result = qa_chain.invoke(question)
@@ -247,7 +272,17 @@ def api_chat():
         logger.info(f"isi dari reference: {reference(result)}")
         logger.info(f"isi dari result: {result}")
 
-        full_answer = f"{result["result"]} \n {reference(result)}"
+        # Extract raw answer and check for "Maaf" pattern
+        raw_answer = result["result"].strip()
+        
+        # Determine if we should add references
+        if raw_answer.lower().startswith("maaf"):
+            # If apology message, use raw answer without references
+            full_answer = raw_answer
+        else:
+            # For normal answers, add references
+            reference_text = reference(result)
+            full_answer = f"{raw_answer}\n{reference_text}"
 
         # Jika LLM gagal atau jawab kosong/aneh
         if not full_answer:
