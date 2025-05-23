@@ -113,7 +113,19 @@ Sebelum memulai, pastikan Anda telah menginstal:
    http://localhost:5173
    ```
 
-### 4. Cara Penggunaan Aplikasi
+### 4. Setup Catty - chatbot Departemen Teknologi Informasi dan Converter PDF to MD
+1. Buka terminal baru dan menuju folder BE-Flask-fix
+2. Jalankan command `docker compose up -d`. Tunggu hingga build dan menjalankan dockernya selesai.
+3. Buka terminal baru juga, jalankan ollama dan model Qwen2.5:7b-instruct
+4. Setelah selesai, tunggu sampai log ini keluar, dan app siap diapakai!
+   ```
+   2025-05-13 02:50:50,629 - INFO - __main__ - Background worker thread started.
+   2025-05-13 02:50:50,634 - INFO - __main__ - Starting server on port 5000
+   2025-05-13 02:50:50,641 - INFO - waitress - Serving on http://0.0.0.0:5000⁠
+   ```
+   
+
+### 6. Cara Penggunaan Aplikasi
 - **Dashboard Admin** (untuk mengelola dokumen): Akses melalui `/admin-dashboard`
 - **Dashboard Pengguna** (untuk melihat dokumen): Akses melalui halaman utama
 

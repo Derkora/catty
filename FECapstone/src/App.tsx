@@ -2,12 +2,13 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
-import NewsDetail from './pages/NewsDetail';
+// import NewsDetail from './pages/NewsDetail'; // Removed
 import ChatbotPage from './pages/ChatbotPage';
 import './App.css';
 import { Toaster } from './components/ui/toaster';
 import React from 'react';
 import AdminDashboard from './pages/AdminDashboard';
+// import RegisterPage from './pages/RegisterPage';
 
 
 interface StrapiUser {
@@ -49,26 +50,21 @@ const ProtectedRoute = ({
     }
   }
 
-  console.log("ProtectedRoute: User data from localStorage:", user);
 
   const isAuthenticated = token !== null && user !== null;
 
   if (!isAuthenticated) {
-    console.log("ProtectedRoute: Not authenticated, redirecting to /login");
     return <Navigate to="/login" replace />;
   }
 
   if (allowedRoles && allowedRoles.length > 0) {
     const userRole = user?.role?.name;
-    console.log("ProtectedRoute: Checking roles. User role:", userRole, "Allowed roles:", allowedRoles);
     
     if (!userRole || !allowedRoles.includes(userRole)) {
-      console.log("ProtectedRoute: Not authorized, redirecting to /"); 
       return <Navigate to="/" replace />; 
     }
   }
   
-  console.log("ProtectedRoute: Access granted.");
   return children;
 };
 
@@ -79,6 +75,9 @@ function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
+        {/* <Route path="/register" element={<RegisterPage />} /> */}
+        
+        {/* Protected Routes */}
     
         <Route 
           path="/dashboard" 
@@ -88,7 +87,7 @@ function App() {
             </ProtectedRoute>
           } 
         />
-        <Route path="/news/:documentId" element={<NewsDetail />} /> 
+        {/* <Route path="/news/:documentId" element={<NewsDetail />} />  Removed */}
         
         <Route 
           path="/chatbot" 

@@ -4,7 +4,6 @@ import logging
 import time # Added for response time calculation
 from flask import Blueprint, request, jsonify
 from threading import Lock 
-from .history_utils import save_chat_history # Import from history_utils.py
 from langchain.vectorstores import Chroma
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.text_splitter import MarkdownHeaderTextSplitter
@@ -13,6 +12,7 @@ from langchain.schema import Document
 from langchain.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
 from langchain_community.llms import Ollama
+import torch
 
 import chromadb
 
@@ -286,18 +286,7 @@ def api_chat():
 
         logger.info("Answer generated successfully.")
 
-        end_time = time.time() # Record end time
-        response_time = int((end_time - start_time) * 1000) # Calculate response time in ms
-
-        # Save chat history
-        save_chat_history(
-            message=question,
-            response=full_answer,
-            role=role,
-            session_id=session_id,
-            response_time=response_time
-        )
-
+        torch.cuda.empty_cache()
         return jsonify({"answer": full_answer}), 200
 
     except Exception as e:

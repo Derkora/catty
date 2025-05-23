@@ -33,7 +33,6 @@ os.environ["REBUILD_URL"] = REBUILD_URL
 from modules.chatit import chat_bp
 from modules.convertit import convert_bp, create_directory, ALLOWED_GROUPS, process_queue
 from modules.crudit import crudit_bp
-from modules.history_utils import history_bp
 
 # save_chat_history function and STRAPI_URL removed, now in modules/history_utils.py
 
@@ -41,7 +40,6 @@ from modules.history_utils import history_bp
 app.register_blueprint(chat_bp)
 app.register_blueprint(convert_bp)
 app.register_blueprint(crudit_bp)
-app.register_blueprint(history_bp)
 
 # === Request Logging ===
 @app.before_request

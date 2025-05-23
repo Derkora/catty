@@ -46,7 +46,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: 'Beranda', href: '/', icon: <Home className="h-4 w-4" /> },
   { 
-    label: 'Tanyabot AI', 
+    label: 'Catty AI', 
     href: '/chatbot', 
     icon: <Bot className="h-4 w-4" />,
     highlight: true,
@@ -148,7 +148,7 @@ const Header: React.FC = () => {
           <div className="flex items-center gap-3 md:gap-4">
             <Link to="/" className="flex items-center gap-2 group transition-all duration-300 transform hover:-translate-y-0.5">
               <div className="h-9 w-9 bg-gradient-to-br from-blue-600 to-violet-600 rounded-lg flex items-center justify-center shadow-md shadow-blue-500/20 group-hover:shadow-blue-500/40 transition-all duration-300">
-                <span className="text-white font-bold text-lg">TI</span>
+                <span className="text-white font-bold text-lg">IT</span>
               </div>
               <div className="hidden md:block">
                 <h1 className="text-lg font-bold leading-tight bg-gradient-to-r from-blue-600 to-violet-700 bg-clip-text text-transparent transition-all duration-300 group-hover:brightness-110">Teknologi Informasi</h1>

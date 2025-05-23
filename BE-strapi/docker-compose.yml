@@ -18,4 +18,4 @@ services:
 
 networks:
   ai-network:
-    driver: bridge
+    external: true
