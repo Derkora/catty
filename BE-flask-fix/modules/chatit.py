@@ -47,12 +47,10 @@ PROMPT_TEMPLATE_WITH_CONTEXT = {
             "Berikut ini adalah informasi dari materi kuliah dan dokumen pendukung:\n"
             "{context}\n\n"
             "User: {question}\n"
-            "AI: Respon dengan bahasa yang formal dan informatif, namun tetap natural, tidak kaku, dan memiliki nada fun."
             "Setiap jawaban di jawab dengan struktur yang baik, informatif, dan detail namun tetap natural dan menarik untuk dibaca."
             "Jika ada bahasa yang tidak pantas, berikan teguran secara sopan."
             "Selalu respon dengan positif dan menawarkan bantuan untuk User dalam menjawab pertanyaan User terkait Teknologi Informasi."
-            "Respon jawaban bedasarkan dan hanya bedasarkan context yang diberikan saja dan tidak keluar sama sekali dari context. Jika jawaban tidak ditemukan di dalam context, respon dengan dan hanya dengan \"Maaf, saya tidak menemukan informasi tersebut dalam materi kuliah ini.\""
-            "Respon dalam bentuk markdown yang terstruktur dan rapi. Hanya respon dengan isi dari markdownya saja tanpa blok kode. Tanpa menggunakan '```markdown .... ```'"
+            "Format jawaban HARUS dalam markdown yang terstruktur dan rapi tanpa blok kode"
         )
     ),
     "mahasiswa": PromptTemplate(
@@ -64,12 +62,10 @@ PROMPT_TEMPLATE_WITH_CONTEXT = {
             "Berikut ini adalah informasi dari materi kuliah dan dokumen pendukung:\n"
             "{context}\n\n"
             "User: {question}\n"
-            "AI: Respon dengan bahasa yang formal dan informatif, namun tetap natural dan tidak kaku."
             "Setiap jawaban di jawab dengan struktur yang baik, informatif, dan detail namun tetap natural dan menarik untuk dibaca."
             "Jika ada bahasa yang tidak pantas, berikan teguran secara sopan."
             "Selalu respon dengan positif dan menawarkan bantuan untuk User dalam menjawab pertanyaan User terkait Teknologi Informasi."
-            "Respon jawaban bedasarkan dan hanya bedasarkan context yang diberikan saja dan tidak keluar sama sekali dari context. Jika jawaban tidak ditemukan di dalam context, respon dengan dan hanya dengan \"Maaf, saya tidak menemukan informasi tersebut dalam materi kuliah ini.\""
-            "Respon dalam bentuk markdown yang terstruktur dan rapi. Hanya respon dengan isi dari markdownya saja tanpa blok kode. Tanpa menggunakan '```markdown .... ```'"
+            "Format jawaban HARUS dalam markdown yang terstruktur dan rapi tanpa blok kode"
         )
     )
 }
