@@ -69,8 +69,15 @@ Saya adalah asisten AI yang siap membantu kamu mendapatkan informasi seputar *De
         return;
     }
 
-    // Kirim pertanyaan ke Flask
+    let typingInterval;
+
     try {
+        // Mulai loop "typing"
+        typingInterval = setInterval(() => {
+            client.sendTyping(userId);
+        }, 4000); // kirim typing setiap 4 detik
+
+        // Kirim pertanyaan ke backend
         const response = await axios.post('http://10.4.89.48:5000/api/chat', {
             message: rawMessage,
             role: 'general'
@@ -84,6 +91,9 @@ Saya adalah asisten AI yang siap membantu kamu mendapatkan informasi seputar *De
     } catch (error) {
         console.error("❌ Gagal kirim ke backend:", error.message);
         await client.sendMessage(userId, '❌ Terjadi kesalahan saat menghubungi server AI. Silakan coba lagi nanti.');
+    } finally {
+        // Hentikan loop typing
+        if (typingInterval) clearInterval(typingInterval);
     }
 });
 
