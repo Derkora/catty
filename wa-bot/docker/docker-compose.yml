@@ -6,9 +6,17 @@ services:
     volumes:
       - ./wa-flask:/app
     restart: always
+    networks:
+      - ai-network
 
   wa-bot:
     build: ./wa-js
     volumes:
       - ./wa-js:/app
     restart: always
+    networks:
+      - ai-network
+
+networks:
+  ai-network:
+    external: true
