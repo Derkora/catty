@@ -1,4 +1,0 @@
-# Himpunan Mahasiswa Teknologi Informasi
-
-
-

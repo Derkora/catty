@@ -4,20 +4,17 @@
 Sistem Knowledge Management ini terdiri dari dua bagian utama:
 - **Frontend**: Aplikasi web yang dibangun dengan React (dalam folder 'FECapstone')
 - **Backend**: Server API yang dibangun dengan Strapi CMS (dalam folder 'BE-strapi')
+- 
 
 ## Persyaratan Sistem
 Sebelum memulai, pastikan Anda telah menginstal:
 - [Node.js](https://nodejs.org/) (versi 14.x atau lebih baru)
 - [npm](https://www.npmjs.com/) (biasanya terinstal bersama Node.js)
-- Code editor (disarankan: [Visual Studio Code](https://code.visualstudio.com/))
-- [Git](https://git-scm.com/) (opsional, untuk kloning repositori)
+- [Git](https://git-scm.com/)
 
 ## Langkah-Langkah Instalasi dan Menjalankan Aplikasi
 
-### 1. Persiapan Awal
-- Clone atau download repositori ini ke komputer Anda
-- Buka terminal/command prompt
-- Masuk ke direktori utama project
+### 1. Persiapan Backend Chatbot
 
 ### 2. Setup Backend (Strapi)
 1. Buka terminal dan masuk ke direktori 'BE-strapi':

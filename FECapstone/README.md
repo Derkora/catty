@@ -2,55 +2,11 @@
 
 Aplikasi frontend berbasis React dengan TypeScript dan Tailwind CSS untuk Portal Informasi Departemen Teknologi Informasi ITS.
 
-## Fitur Utama
-- Tampilan responsif untuk desktop dan mobile
-- Menampilkan berita dan informasi dari backend Strapi
-- Asisten virtual (chatbot) dengan kemampuan render markdown
-- Autentikasi dan halaman admin
-- Komponen UI yang reusable dan modern
-
-## Kebutuhan Sistem
-- Node.js v18 atau lebih baru
-- npm v9 atau lebih baru
-- Git
-- Docker dan Docker Compose (untuk menjalankan layanan backend)
-
-## Panduan Instalasi Lengkap
-
 ### 1. Clone Repository
 ```bash
 git clone https://github.com/username/capstone-knowledge-management-system.git
 cd capstone-knowledge-management-system
 ```
-
-### 2. Setup Backend Chatbot
-
-1. Pastikan Docker dan Docker Compose sudah terinstall:
-   ```bash
-   docker --version
-   docker-compose --version
-   ```
-
-2. Masuk ke direktori chatbot:
-   ```bash
-   cd chatbot
-   ```
-
-3. Jalankan container chatbot dengan Docker Compose:
-   ```bash
-   docker-compose up -d
-   ```
-
-4. Verifikasi container berjalan:
-   ```bash
-   docker-compose ps
-   ```
-   
-   Output yang diharapkan:
-   ```
-   NAME      IMAGE             COMMAND           SERVICE   CREATED         STATUS         PORTS
-   chatbot   chatbot-chatbot   "python app.py"   chatbot   XX minutes ago  Up XX minutes  0.0.0.0:5000->5000/tcp
-   ```
 
 ### 3. Setup Frontend
 
@@ -94,22 +50,15 @@ cd capstone-knowledge-management-system
    })
    ```
 
-5. Konfigurasi environment:
-   Buat file `.env.local` di direktori FECapstone dengan isi:
-   ```
-   VITE_STRAPI_API_URL=http://localhost:1337/api
-   VITE_STRAPI_UPLOADS_URL=http://localhost:1337
-   ```
-
 ### 4. Menjalankan Aplikasi
 
 1. Pastikan backend chatbot sudah berjalan (container docker aktif)
 
 2. Jalankan frontend dalam mode development:
    ```bash
-   npm run dev
+   npm run dev -- --host
    # atau
-   yarn dev
+   yarn dev -- --host
    ```
 
 3. Akses aplikasi di browser:

@@ -36,7 +36,7 @@ docker run -d --gpus=all \
 
 4. run model
 ```sh
-docker exec -it ollama ollama run phi4:14b
+docker exec -it ollama ollama run qwen2.5:7b-instruct
 ```
 
 # RUN MODEL

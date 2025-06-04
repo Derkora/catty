@@ -35,7 +35,7 @@
 
 4. Jalankan server Strapi dalam mode pengembangan:
    ```
-   docker compose up -d --build
+   npm run develop
    ```
 
 5. Setelah server berjalan, akses panel admin Strapi di browser melalui URL:
