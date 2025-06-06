@@ -1,6 +1,7 @@
 waitress
 cryptography
 requests
+pytz
 flask
 Flask-CORS
 langchain

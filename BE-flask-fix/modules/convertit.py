@@ -12,11 +12,15 @@ from marker.models import create_model_dict
 from marker.output import text_from_rendered
 from marker.config.parser import ConfigParser
 import uuid
+import datetime
+import pytz
 
 headers = {
     "Content-Type": "application/json",
     "X-Requested-With": "XMLHttpRequest"
 }
+
+tz = pytz.timezone("Asia/Jakarta")
 
 logger = logging.getLogger(__name__)
 convert_bp = Blueprint('convert', __name__)
@@ -47,10 +51,14 @@ def process_pdf(temp_pdf_path, group, nama_dokumen, folder_name, model_dict):
     try:
         logger.info(f"Memulai proses PDF: {temp_pdf_path} untuk grup: {group}")
 
+        diunggah = datetime.datetime.now(tz).strftime('%d %B %Y %H:%M')
         filename = os.path.basename(temp_pdf_path)
         pdf_name = os.path.splitext(filename)[0]
         output_dir = os.path.join(MARKDOWN_DIR, group, pdf_name)
         create_directory(output_dir)
+        info_md_path = os.path.join(output_dir, "00_info.md")
+        with open(info_md_path, "w", encoding="utf-8") as f:
+            f.write(f"Nama: {nama_dokumen}\nDiunggah: {diunggah}")
 
         total_pages = get_total_pages(temp_pdf_path)
 
@@ -94,7 +102,8 @@ def process_pdf(temp_pdf_path, group, nama_dokumen, folder_name, model_dict):
         create_directory(meta_dir)
         meta_path = os.path.join(meta_dir, f"{filename}.meta")
         with open(meta_path, "w", encoding="utf-8") as f:
-            f.write(nama_dokumen)
+            f.write(f"{nama_dokumen}\n{diunggah}")
+
 
         # TODO: Panggil fungsi rebuild_chroma di sini jika perlu
 
