@@ -17,7 +17,8 @@ services:
       - ai-network
 
   frontend:
-    image: fecapstone:latest
+    # image: fecapstone:latest
+    build: ./FECapstone
     container_name: frontend
     ports:
       - "3000:80"
