@@ -99,6 +99,16 @@
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); 
       transition: background 0.3s, transform 0.3s; 
     }
+
+    #link-list {
+      margin-top: 15px;
+      text-align: left;
+    }
+    .file-item a {
+      text-decoration: none;
+      color: #007bff; 
+      font-weight: bold; 
+    }
     
     .file-item:hover {
       background: #e1f5fe; 
@@ -436,12 +446,19 @@
       fileList.innerHTML = `
         <h3>Daftar File</h3>
         <table border='1' style='width:100%; border-collapse: collapse;'>
-          <thead><tr><th>Nama Asli</th><th>Kategori</th><th>Aksi</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Nama Asli</th>
+              <th>Diunggah</th>
+              <th>Kategori</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
           <tbody></tbody>
         </table>
       `;
       const tableBody = fileList.querySelector("tbody");
-    
+
       groups.forEach(group => {
         fetch(`/api/files?category=${group}`, {
           method: "GET",
@@ -452,15 +469,16 @@
           .then(res => res.json())
           .then(data => {
             const allTypes = data.files_by_type || {};
-    
+
             for (const [ext, info] of Object.entries(allTypes)) {
               info.files.forEach(fileObj => {
                 const file = fileObj.filename;
                 const originalName = fileObj.original_name || file;
-                const uuidPart = file.split('_').pop()?.split('.')[0]; // Ambil UUID dari nama file
-              
+                const uploaded = fileObj.uploaded || "-";  // ambil waktu unggah
+                const uuidPart = file.split('_').pop()?.split('.')[0];
+
                 if (!uuidPart) return;
-              
+
                 fetch("/api/encrypt", {
                   method: "POST",
                   headers: {
@@ -469,23 +487,24 @@
                   },
                   body: JSON.stringify({ uuid: uuidPart })
                 })
-                .then(res => res.json())
-                .then(result => {
-                  const token = result.token;
-                  const fileUrl = `/get-file/${token}`;
-              
-                  const row = document.createElement("tr");
-                  row.innerHTML = `
-                    <td><a href="${fileUrl}" target="_blank">${originalName}</a></td>
-                    <td>${group}</td>
-                    <td><button class="delete-btn" onclick="deleteFile('${file.split('.').slice(0, -1).join('.')}', '${group}')">Hapus</button></td>
-                  `;
-                  tableBody.appendChild(row);
-                })
-                .catch(err => {
-                  console.error("Gagal mengenkripsi UUID:", err);
-                });
-              });              
+                  .then(res => res.json())
+                  .then(result => {
+                    const token = result.token;
+                    const fileUrl = `/get-file/${token}`;
+
+                    const row = document.createElement("tr");
+                    row.innerHTML = `
+                      <td><a href="${fileUrl}" target="_blank">${originalName}</a></td>
+                      <td>${uploaded}</td>
+                      <td>${group}</td>
+                      <td><button class="delete-btn" onclick="deleteFile('${file.split('.').slice(0, -1).join('.')}', '${group}')">Hapus</button></td>
+                    `;
+                    tableBody.appendChild(row);
+                  })
+                  .catch(err => {
+                    console.error("Gagal mengenkripsi UUID:", err);
+                  });
+              });
             }
           })
           .catch(err => {
@@ -493,8 +512,7 @@
           });
       });
     }
-    
-  
+
     // Hapus file
     function deleteFile(folder, group) {
       console.log("Menghapus folder/file:", folder, "dari grup:", group);
@@ -571,7 +589,20 @@
     function loadLinkList() {
       const groups = ["umum", "mahasiswa"];
       const linkList = document.getElementById("link-list");
-      linkList.innerHTML = "<table border='1' style='width:100%; border-collapse: collapse;'><thead><tr><th>Nama</th><th>Link</th><th>Kategori</th><th>Aksi</th></tr></thead><tbody></tbody></table>";
+      linkList.innerHTML = `
+        <table border='1' style='width:100%; border-collapse: collapse;'>
+          <thead>
+            <tr>
+              <th>Nama</th>
+              <th>Diunggah</th>
+              <th>Link</th>
+              <th>Kategori</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>`;
+        
       const tableBody = linkList.querySelector("tbody");
     
       groups.forEach(group => {
@@ -582,22 +613,18 @@
           }
         })
           .then(res => {
-            if (!res.ok) {
-              throw new Error(`Gagal memuat link dari kategori ${group}: Status ${res.status}`);
-            }
+            if (!res.ok) throw new Error(`Gagal memuat link dari kategori ${group}: Status ${res.status}`);
             return res.json();
           })
           .then(data => {
-            if (!data.links) {
-              throw new Error("Data link tidak ditemukan di respon API.");
-            }
-            (data.links || []).forEach(item => {
-              const nama = item.nama || "";
-              const link = item.link || "";
+            if (!data.links) throw new Error("Data link tidak ditemukan di respon API.");
+    
+            data.links.forEach(item => {
               const row = document.createElement("tr");
               row.innerHTML = `
-                <td>${nama}</td>
-                <td><a href="${link}" target="_blank">${link}</a></td>
+                <td>${item.nama || ""}</td>
+                <td>${item.diunggah || ""}</td>
+                <td><a href="${item.link || "#"}" target="_blank">${item.link || ""}</a></td>
                 <td>${group}</td>
                 <td><button class="delete-btn" onclick="deleteLink('${item.filename}', '${group}')">Hapus</button></td>
               `;

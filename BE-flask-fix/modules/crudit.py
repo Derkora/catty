@@ -6,6 +6,8 @@ import logging
 from modules.convertit import process_pdf
 from queue import Queue
 import uuid
+import datetime
+import pytz
 import re
 
 headers = {
@@ -15,6 +17,7 @@ headers = {
 
 # Inisialisasi task queue
 task_queue = Queue()
+tz = pytz.timezone("Asia/Jakarta")
 
 # Inisialisasi Blueprint dan Logger
 crudit_bp = Blueprint('crudit', __name__)
@@ -101,10 +104,10 @@ def upload_file_nonpdf():
         # Simpan file
         file.save(save_path)
 
-        # Simpan metadata ke dalam folder meta
         meta_path = os.path.join(meta_dir, filename + ".meta")
         with open(meta_path, "w", encoding="utf-8") as meta_file:
-            meta_file.write(nama_dokumen)
+            diunggah = datetime.datetime.now(tz).strftime('%d %B %Y %H:%M')
+            meta_file.write(f"{nama_dokumen}\n{diunggah}")
 
         logger.info(f"Non-PDF file uploaded to: {save_path}")
         return jsonify({
@@ -144,18 +147,24 @@ def list_files():
                 meta_file_path = os.path.join(meta_path, meta_file)
 
                 original_name = base_name
+                uploaded_time = "-"
                 if os.path.exists(meta_file_path):
                     try:
                         with open(meta_file_path, "r", encoding="utf-8") as meta:
-                            content = meta.read().strip()
-                            if content:
-                                original_name = content
+                            lines = meta.readlines()
+                            if len(lines) >= 2:
+                                original_name = lines[0].strip()
+                                uploaded_time = lines[1].strip()
+                            elif len(lines) == 1:
+                                original_name = lines[0].strip()
                     except Exception as e:
                         logger.error(f"Gagal baca .meta file {meta_file_path}: {e}")
+
 
                 files_grouped.setdefault(ext, []).append({
                     "filename": f,
                     "original_name": original_name,
+                    "uploaded": uploaded_time,
                     "link": f"/static/uploads/original/{category}/{f}"
                 })
 
@@ -271,6 +280,7 @@ def delete_file(folder):
 def upload_link():
     try:
         nama = request.form.get('nama')
+        diunggah = datetime.datetime.now(tz).strftime('%d %B %Y %H:%M')
         jenis = request.form.get('jenis')
         deskripsi = request.form.get('deskripsi', '')
         link = request.form.get('link')
@@ -292,7 +302,8 @@ def upload_link():
         filepath = os.path.join(folder_path, filename)
 
         with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(f"Nama: {original_nama}\n")  # tampilkan yang asli di dalam file
+            f.write(f"Nama: {original_nama}\n")
+            f.write(f"Diunggah: {diunggah}\n")  # tampilkan yang asli di dalam file
             f.write(f"Jenis: {jenis}\n")
             f.write(f"Deskripsi: {deskripsi}\n")
             f.write(f"Link: {link}\n")
@@ -330,25 +341,28 @@ def list_links():
             logger.warning(f"Folder {folder_path} tidak ditemukan.")
             return jsonify({"links": []}), 200
 
-        link_files = [f for f in os.listdir(folder_path) if f.endswith('.md')]
-        if not link_files:
-            logger.info(f"Tidak ada link dalam kategori {category}.")
-            return jsonify({"links": []}), 200
-
         results = []
-        for f in link_files:
+        for filename in os.listdir(folder_path):
+            if not filename.endswith('.md'):
+                continue
+
+            file_path = os.path.join(folder_path, filename)
             try:
-                with open(os.path.join(folder_path, f), 'r', encoding='utf-8') as file:
+                with open(file_path, 'r', encoding='utf-8') as file:
                     lines = file.readlines()
                     data = {
                         "nama": "",
+                        "diunggah": "",
                         "jenis": "",
                         "deskripsi": "",
                         "link": ""
                     }
+
                     for line in lines:
                         if line.startswith("Nama:"):
                             data["nama"] = line.replace("Nama:", "").strip()
+                        elif line.startswith("Diunggah:"):
+                            data["diunggah"] = line.replace("Diunggah:", "").strip()
                         elif line.startswith("Jenis:"):
                             data["jenis"] = line.replace("Jenis:", "").strip()
                         elif line.startswith("Deskripsi:"):
@@ -357,20 +371,19 @@ def list_links():
                             data["link"] = line.replace("Link:", "").strip()
 
                     results.append({
-                        "filename": f,
-                        "nama": data["nama"],
-                        "jenis": data["jenis"],
-                        "deskripsi": data["deskripsi"],
-                        "link": data["link"],
-                        "url": f"/static/uploads/markdown/{category}/{f}"
+                        "filename": filename,
+                        **data,
+                        "url": f"/static/uploads/markdown/{category}/{filename}"
                     })
             except Exception as e:
-                logger.error(f"Error membaca file {f}: {e}", exc_info=True)
+                logger.error(f"Gagal membaca file {filename}: {e}", exc_info=True)
 
         return jsonify({"links": results}), 200
+
     except Exception as e:
         logger.error("Gagal mengambil daftar link:", exc_info=True)
         return jsonify({"error": "Terjadi kesalahan: " + str(e)}), 500
+
 
 @crudit_bp.route('/api/link/<filename>', methods=['DELETE'])
 def delete_link(filename):
