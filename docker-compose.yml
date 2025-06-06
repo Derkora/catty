@@ -1,37 +1,54 @@
-services:
+version: '3.8'
 
+services:
   strapi:
     build: ./BE-strapi
     container_name: strapi
     ports:
       - "1337:1337"
     volumes:
-      - ./BE-strapi/data:/app/data
-    networks:
-      - ai-network
+      - ./BE-strapi/public/uploads:/app/public/uploads
+      - ./BE-strapi/src:/app/src
     environment:
       NODE_ENV: development
       DATABASE_CLIENT: sqlite
-      DATABASE_FILENAME: ./data/data.db
     restart: unless-stopped
+    networks:
+      - ai-network
+
+  frontend:
+    image: fecapstone:latest
+    container_name: frontend
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+    depends_on:
+      - strapi
+      - chatbot
+    networks:
+      - ai-network
 
   chatbot:
-    build: ./BE-flask
+    build: ./BE-flask-fix
     container_name: chatbot
     ports:
       - "5000:5000"
     volumes:
-      - ./BE-flask/templates:/app/templates
-      - ./BE-flask/modules:/app/modules
-    networks:
-      - ai-network
+      - ./BE-flask-fix:/app
+    environment:
+      - STRAPI_URL=http://strapi:1337
+      - OLLAMA_HOST=http://ollama:11434 
+    restart: unless-stopped
     deploy:
       resources:
         reservations:
           devices:
-            - capabilities: [gpu]
-    restart: unless-stopped
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - ai-network
 
 networks:
   ai-network:
-    driver: bridge
+    external: true

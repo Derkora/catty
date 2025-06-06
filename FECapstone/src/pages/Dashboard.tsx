@@ -5,9 +5,9 @@ import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge'; // Added Badge
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'; // Added Tabs imports
-import { FileText, Download, RefreshCw, Search, BookOpen, Calendar, Clock, FileArchive, ExternalLink, ChevronRight, Tag, FileImage, File, Sparkles, Link as LinkIcon, ChevronUp, ChevronDown } from 'lucide-react'; // Added LinkIcon, ChevronUp, ChevronDown
+import { FileText, RefreshCw, Search, FileArchive, ExternalLink, ChevronRight, Tag, FileImage, File, Sparkles, Link as LinkIcon, ChevronUp, ChevronDown } from 'lucide-react'; // Added LinkIcon, ChevronUp, ChevronDown
 import axios from 'axios';
-import { API_BASE_URL, FLASK_API_BASE_URL } from '../config';
+import { FLASK_API_BASE_URL } from '../config';
 import { useToast } from '../lib/hooks/use-toast'; // Added useToast
 
 interface FlaskDocument {
@@ -35,10 +35,7 @@ interface FilesResponse {
   };
 }
 
-interface FileInfo {
-  files: string[];
-  count: number;
-}
+
 
 interface CollapsibleMessageProps {
   text: string;
@@ -106,7 +103,6 @@ interface UploadedLink {
 
 const Dashboard: React.FC = () => {
   const { toast } = useToast(); 
-  const [filteredDocuments, setFilteredDocuments] = useState<FlaskDocument[]>([]);
   const [loadingDocuments, setLoadingDocuments] = useState(false); 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
@@ -313,15 +309,6 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const handleDownloadFile = (url: string, filename: string) => {
-    const fullUrl = `${API_BASE_URL}${url}`;
-    const link = document.createElement('a');
-    link.href = fullUrl;
-    link.setAttribute('download', filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
   const openDocumentDetail = (doc: FlaskDocument) => {
     setSelectedDocument(doc);

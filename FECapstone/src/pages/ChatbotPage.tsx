@@ -172,11 +172,11 @@ const ChatbotPage: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [user, setUser] = useState<any | null>(null); // Use 'any' or define a StrapiUser interface if needed
   const [suggestedTopics, setSuggestedTopics] = useState<string[]>([]); // Initialize as empty, will be fetched
-  const [loadingTopics, setLoadingTopics] = useState(true);
+
   const fullscreenRef = useRef<HTMLDivElement>(null);
 
   const fetchSuggestedTopicsFromStrapi = async () => {
-    setLoadingTopics(true);
+
     try {
       // Using the endpoint from your feedback and AdminDashboard
       const response = await fetch(`${API_BASE_URL}/api/pertanyaan-chatbots`);
@@ -1368,3 +1368,4 @@ const ChatbotPage: React.FC = () => {
 };
 
 export default ChatbotPage;
+

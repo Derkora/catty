@@ -11,7 +11,6 @@ import {
   Trash2,
   Edit,
   RefreshCw,
-  ChevronDown,
   Upload,
   FileText,
   BarChart,
@@ -22,10 +21,10 @@ import {
   Download,
   PlusCircle,
   X,
-  User,
-  BookOpen,
   GraduationCap,
-  HelpCircle
+  HelpCircle,
+  BookOpen,
+  User
 } from 'lucide-react';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
@@ -131,10 +130,7 @@ interface FilesResponse {
     };
   };
 }
-interface FileInfo {
-  files: string[];
-  count: number;
-}
+
 
 interface CollapsibleMessageProps {
   text: string;
@@ -210,9 +206,7 @@ const AdminDashboard: React.FC = () => {
   const [filterType, setFilterType] = useState('all'); // "all", "Dokumen_Umum", "Dokumen_Mahasiswa"
   const [previewDocument, setPreviewDocument] = useState<FlaskDocument | null>(null); // Changed to FlaskDocument
   const [histories, setHistories] = useState<History[]>([]);
-  const [historyFilter, setHistoryFilter] = useState('all'); // 'all', 'public', 'mahasiswa'
-  const [historySort, setHistorySort] = useState('newest'); // 'newest', 'oldest'
-  const [userTypeFilter, setUserTypeFilter] = useState('all');
+  // Removed unused state variables
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [newUser, setNewUser] = useState({ username: '', email: '', password: '', role: 3 }); // Added role, default to Mahasiswa IT (ID 3)
   const [isCreatingUser, setIsCreatingUser] = useState(false);
@@ -260,17 +254,7 @@ const AdminDashboard: React.FC = () => {
     }));
   };
 
-  const openEditModal = (user: User) => {
-    setEditingUser(user);
-    setEditUserForm({
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      role: user.role.id,    // assuming user.role.id is a number
-      password: '',
-    });
-    setIsEditUserModalOpen(true);
-  };
+  // Removed unused function
 
 
   // State for Link Upload
@@ -284,7 +268,7 @@ const AdminDashboard: React.FC = () => {
   const [uploadedLinks, setUploadedLinks] = useState<UploadedLink[]>([]);
   // Define a proper interface later
   const [isSubmittingLink, setIsSubmittingLink] = useState(false);
-  const [loadingLinks, setLoadingLinks] = useState(false);
+  // Removed unused state variable
   const [waIframeKey, setWaIframeKey] = useState(0); // State to force reload WhatsApp Bot iframe
 
   const fetchChatbotQuestions = async () => {
@@ -438,7 +422,8 @@ const AdminDashboard: React.FC = () => {
             if (Array.isArray(info.files)) {
               for (const fileObj of info.files) {
                 // fileObj is { filename, link, original_name }
-                const { filename, original_name } = fileObj;
+                const filename = fileObj.filename as string;
+                const original_name = fileObj.original_name as string;
                 const uuid = filename.split('_').pop()?.split('.')[0];
                 if (!uuid) {
                   console.warn(`Cannot extract UUID from ${filename}`);
@@ -1064,13 +1049,10 @@ const AdminDashboard: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  const filteredHistories = histories.filter(history => {
-    if (historyFilter === 'all') return true;
-    return history.userType === historyFilter;
-  }).sort((a, b) => {
+  const filteredHistories = histories.sort((a, b) => {
     const dateA = new Date(a.timestamp || a.createdAt || 0).getTime();
     const dateB = new Date(b.timestamp || b.createdAt || 0).getTime();
-    return historySort === 'newest' ? dateB - dateA : dateA - dateB;
+    return dateB - dateA; // Sort by newest first
   });
 
   if (loading && flaskDocuments.length === 0) { // Check flaskDocuments
@@ -1298,7 +1280,7 @@ const AdminDashboard: React.FC = () => {
                   <TabsContent value="linkDokumen">
                     <Card className="p-6 border border-slate-200">
                       <h3 className="text-lg font-medium text-slate-700 mb-4">Daftar Link Dokumen Tersimpan</h3>
-                      {loadingLinks ? (
+                      {loading ? (
                         <div className="py-4 text-center">
                           <RefreshCw className="h-8 w-8 mx-auto text-slate-400 animate-spin" />
                           <p className="mt-2 text-slate-500">Memuat daftar link...</p>
