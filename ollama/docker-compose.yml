@@ -1,0 +1,25 @@
+services:
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+      - ./entrypoint.sh:/app/entrypoint.sh
+    networks:
+      - ai-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    restart: unless-stopped
+    entrypoint: /app/entrypoint.sh
+
+volumes:
+  ollama-data:
+
+networks:
+  ai-network:
+    external: true

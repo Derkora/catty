@@ -1,6 +1,7 @@
 services:
   flask:
     build: ./wa-flask
+    container_name: wa-flask
     ports:
       - "5001:5001"
     volumes:
@@ -11,6 +12,7 @@ services:
 
   wa-bot:
     build: ./wa-js
+    container_name: wa-js
     volumes:
       - ./wa-js:/app
     restart: always
