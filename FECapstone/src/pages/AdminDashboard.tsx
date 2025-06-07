@@ -61,7 +61,8 @@ interface UploadedLink {
   kategori: 'umum' | 'mahasiswa';
   jenis: string;      // e.g. "Dokumen_Administrasi"
   deskripsi: string;  // maybe empty string if none
-  filename: string;   // the exact filename (with extension) for DELETE
+  filename: string;
+  diunggah: string;   // the exact filename (with extension) for DELETE
 }
 
 
@@ -425,6 +426,7 @@ const AdminDashboard: React.FC = () => {
                 const filename = fileObj.filename as string;
                 const original_name = fileObj.original_name as string;
                 const uuid = filename.split('_').pop()?.split('.')[0];
+                const uploaded_timestamp = fileObj.uploaded as string; // Capture timestamp
                 if (!uuid) {
                   console.warn(`Cannot extract UUID from ${filename}`);
                   continue;
@@ -456,7 +458,7 @@ const AdminDashboard: React.FC = () => {
                     fileUrl,
                     filenameForDelete: filenameNoExt,
                     fileExtension: ext.replace(/^\./, ''),
-                    createdAt: new Date().toISOString()
+                    createdAt: uploaded_timestamp || new Date().toISOString()
                   });
                 } catch (e) {
                   console.error(`Failed to encrypt UUID ${uuid}:`, e);
@@ -479,7 +481,7 @@ const AdminDashboard: React.FC = () => {
 
   const fetchHistories = async () => {
     try {
-  
+
       const token = localStorage.getItem('token');
 
 
@@ -746,6 +748,7 @@ const AdminDashboard: React.FC = () => {
             jenis: item.jenis || '',
             deskripsi: item.deskripsi || '',
             filename: item.filename,
+            diunggah: item.diunggah || ''
           });
         });
       }
@@ -1229,7 +1232,7 @@ const AdminDashboard: React.FC = () => {
                               <TableRow>
                                 <TableHead>Nama Dokumen</TableHead>
                                 <TableHead>Jenis</TableHead>
-
+                                <TableHead>Diunggah</TableHead>
                                 <TableHead>File</TableHead>
                                 <TableHead className="text-right">Aksi</TableHead>
                               </TableRow>
@@ -1246,6 +1249,7 @@ const AdminDashboard: React.FC = () => {
                                       {doc.jenisDokumenDisplay}
                                     </Badge>
                                   </TableCell>
+                                  <TableCell className="text-sm text-slate-600">{doc.createdAt}</TableCell>
                                   <TableCell>
                                     <Button
                                       variant="outline"
@@ -1296,6 +1300,7 @@ const AdminDashboard: React.FC = () => {
                             <TableHeader className="bg-slate-50">
                               <TableRow>
                                 <TableHead>Nama Dokumen</TableHead>
+                                <TableHead>Diunggah</TableHead>
                                 <TableHead>Link</TableHead>
                                 <TableHead>Kategori</TableHead>
                                 <TableHead>Jenis</TableHead>
@@ -1307,6 +1312,7 @@ const AdminDashboard: React.FC = () => {
                               {uploadedLinks.map(linkItem => (
                                 <TableRow key={linkItem.id} className="hover:bg-slate-50/80">
                                   <TableCell className="font-medium">{linkItem.nama}</TableCell>
+                                  <TableCell className="text-sm text-slate-600">{linkItem.diunggah}</TableCell>
                                   <TableCell>
                                     <a
                                       href={linkItem.link}

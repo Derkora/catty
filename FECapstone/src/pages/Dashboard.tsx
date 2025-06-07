@@ -11,19 +11,21 @@ import { FLASK_API_BASE_URL } from '../config';
 import { useToast } from '../lib/hooks/use-toast'; // Added useToast
 
 interface FlaskDocument {
-  key: string; 
-  namaDokumen: string; 
-  jenisDokumenDisplay: 'Dokumen Umum' | 'Dokumen Mahasiswa'; 
-  flaskCategory: 'umum' | 'mahasiswa'; 
-  fileUrl: string; 
-  filenameForDelete: string; 
-  fileExtension: string; 
+  key: string;
+  namaDokumen: string;
+  jenisDokumenDisplay: 'Dokumen Umum' | 'Dokumen Mahasiswa';
+  flaskCategory: 'umum' | 'mahasiswa';
+  fileUrl: string;
+  filenameForDelete: string;
+  fileExtension: string;
+  createdAt: string;
 }
 
 interface FileObj {
   filename: string;
   link: string;
   original_name: string;
+  uploaded: string;
 }
 
 interface FilesResponse {
@@ -49,7 +51,7 @@ const CollapsibleMessage = ({ text, maxLength = 100, onClick }: CollapsibleMessa
   const shouldTruncate = text.length > maxLength;
 
   const handleClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); 
+    e.stopPropagation();
     if (onClick) {
       onClick(text);
     } else if (shouldTruncate) {
@@ -99,18 +101,19 @@ interface UploadedLink {
   kategori: 'umum' | 'mahasiswa';
   jenis: string;
   deskripsi: string;
+  diunggah: string;
 }
 
 const Dashboard: React.FC = () => {
-  const { toast } = useToast(); 
-  const [loadingDocuments, setLoadingDocuments] = useState(false); 
+  const { toast } = useToast();
+  const [loadingDocuments, setLoadingDocuments] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [sortOption, setSortOption] = useState('newest');
   const [selectedDocument, setSelectedDocument] = useState<FlaskDocument | null>(null);
   const [flaskDocuments, setFlaskDocuments] = useState<FlaskDocument[]>([]);
   const [filteredFlaskDocuments, setFilteredFlaskDocuments] = useState<FlaskDocument[]>([]);
-  const [activeMainTab, setActiveMainTab] = useState('files'); 
+  const [activeMainTab, setActiveMainTab] = useState('files');
 
   const [uploadedLinks, setUploadedLinks] = useState<UploadedLink[]>([]);
   const [loadingLinks, setLoadingLinks] = useState(true);
@@ -119,7 +122,7 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     fetchFlaskDocuments();
-    fetchLinkList(); 
+    fetchLinkList();
   }, []);
 
   useEffect(() => {
@@ -131,8 +134,8 @@ const Dashboard: React.FC = () => {
     }
     if (filterType !== 'all') {
       let fileDocTypeFilter = '';
-      if (filterType === "Dokumen Umum'") fileDocTypeFilter = "Dokumen Umum"; 
-      else if (filterType === "Dokumen_MataKuliah") fileDocTypeFilter = "Dokumen Mahasiswa"; 
+      if (filterType === "Dokumen Umum'") fileDocTypeFilter = "Dokumen Umum";
+      else if (filterType === "Dokumen_MataKuliah") fileDocTypeFilter = "Dokumen Mahasiswa";
 
       if (fileDocTypeFilter) {
         tempFilteredFiles = tempFilteredFiles.filter(doc => doc.jenisDokumenDisplay === fileDocTypeFilter);
@@ -177,111 +180,115 @@ const Dashboard: React.FC = () => {
   }, [flaskDocuments, uploadedLinks, searchTerm, filterType, sortOption]);
 
   const fetchFlaskDocuments = async () => {
-  setLoadingDocuments(true);
-  try {
-    const categories: ('umum' | 'mahasiswa')[] = ['umum','mahasiswa'];
-    const allDocs: FlaskDocument[] = [];
+    setLoadingDocuments(true);
+    try {
+      const categories: ('umum' | 'mahasiswa')[] = ['umum', 'mahasiswa'];
+      const allDocs: FlaskDocument[] = [];
 
-    for (const category of categories) {
-      const res = await axios.get<FilesResponse>(
-        `${FLASK_API_BASE_URL}/api/files?category=${category}`,
-        { headers: { 'X-Requested-With': 'XMLHttpRequest' } }
-      );
+      for (const category of categories) {
+        const res = await axios.get<FilesResponse>(
+          `${FLASK_API_BASE_URL}/api/files?category=${category}`,
+          { headers: { 'X-Requested-With': 'XMLHttpRequest' } }
+        );
 
-      for (const [ext, info] of Object.entries(res.data.files_by_type || {})) {
-        if (!Array.isArray(info.files)) continue;
+        for (const [ext, info] of Object.entries(res.data.files_by_type || {})) {
+          if (!Array.isArray(info.files)) continue;
 
-        for (const fileObj of info.files) {
-          const { filename, original_name } = fileObj;
-          const uuid = filename.split('_').pop()?.split('.')[0];
-          if (!uuid) continue;
+          for (const fileObj of info.files) {
+            const { filename, original_name } = fileObj;
+            const uuid = filename.split('_').pop()?.split('.')[0];
+            const uploaded_timestamp = fileObj.uploaded; // Capture timestamp
+            if (!uuid) continue;
 
-          try {
-            const tokenRes = await axios.post(
-              `${FLASK_API_BASE_URL}/api/encrypt`,
-              { uuid },
-              {
-                headers: {
-                  'Content-Type': 'application/json',
-                  'X-Requested-With': 'XMLHttpRequest'
+            try {
+              const tokenRes = await axios.post(
+                `${FLASK_API_BASE_URL}/api/encrypt`,
+                { uuid },
+                {
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                  }
                 }
-              }
-            );
-            const fileUrl = `${FLASK_API_BASE_URL}/get-file/${tokenRes.data.token}`;
-            allDocs.push({
-              key: filename,
-              namaDokumen: original_name || filename,
-              jenisDokumenDisplay: category === 'umum'
-                ? 'Dokumen Umum'
-                : 'Dokumen Mahasiswa',
-              flaskCategory: category,
-              fileUrl,
-              filenameForDelete: filename.replace(/\.[^/.]+$/, ''),
-              fileExtension: ext.replace(/^\./, ''),
-            });
-          } catch (err) {
-            console.error(`Encrypt failed for ${filename}`, err);
+              );
+              const fileUrl = `${FLASK_API_BASE_URL}/get-file/${tokenRes.data.token}`;
+              allDocs.push({
+                key: filename,
+                namaDokumen: original_name || filename,
+                jenisDokumenDisplay: category === 'umum'
+                  ? 'Dokumen Umum'
+                  : 'Dokumen Mahasiswa',
+                flaskCategory: category,
+                fileUrl,
+                filenameForDelete: filename.replace(/\.[^/.]+$/, ''),
+                fileExtension: ext.replace(/^\./, ''),
+                createdAt: uploaded_timestamp || '',
+              });
+            } catch (err) {
+              console.error(`Encrypt failed for ${filename}`, err);
+            }
           }
         }
       }
-    }
 
-    setFlaskDocuments(allDocs);
-  } catch (err) {
-    console.error('Error fetching docs', err);
-    setFlaskDocuments([]);
-  } finally {
-    setLoadingDocuments(false);
-  }
-};
+      setFlaskDocuments(allDocs);
+    } catch (err) {
+      console.error('Error fetching docs', err);
+      setFlaskDocuments([]);
+    } finally {
+      setLoadingDocuments(false);
+    }
+  };
 
 
   const fetchLinkList = async () => {
-  setLoadingLinks(true);
-  try {
-    const categories: ('umum'|'mahasiswa')[] = ['umum','mahasiswa'];
-    const allLinks: UploadedLink[] = [];
+    setLoadingLinks(true);
+    try {
+      const categories: ('umum' | 'mahasiswa')[] = ['umum', 'mahasiswa'];
+      const allLinks: UploadedLink[] = [];
 
-    for (const category of categories) {
-      const res = await axios.get<{
-        links: Array<{
-          nama: string;
-          link: string;
-          filename: string;
-          jenis?: string;
-          deskripsi?: string;
-        }>;
-      }>(
-        `${FLASK_API_BASE_URL}/api/link?category=${category}`,
-        { headers: { 'X-Requested-With': 'XMLHttpRequest' } }
-      );
+      for (const category of categories) {
+        const res = await axios.get<{
+          links: Array<{
+            nama: string;
+            link: string;
+            filename: string;
+            jenis?: string;
+            deskripsi?: string;
+            diunggah?: string;
+          }>;
+        }>(
+          `${FLASK_API_BASE_URL}/api/link?category=${category}`,
+          { headers: { 'X-Requested-With': 'XMLHttpRequest' } }
+        );
 
-      (res.data.links || []).forEach(item => {
-        allLinks.push({
-          id: item.filename,
-          filename: item.filename,
-          nama: item.nama,
-          link: item.link,
-          kategori: category,
-          jenis: item.jenis || '',
-          deskripsi: item.deskripsi || '',
+        (res.data.links || []).forEach(item => {
+          allLinks.push({
+            id: item.filename,
+            filename: item.filename,
+            nama: item.nama,
+            link: item.link,
+            kategori: category,
+            jenis: item.jenis || '',
+            deskripsi: item.deskripsi || '',
+            diunggah: item.diunggah || '',
+          });
         });
-      });
-    }
+      }
 
-    setUploadedLinks(allLinks);
-  } catch (err) {
-    console.error('Error fetching links', err);
-    toast({
-      title: 'Gagal Memuat Daftar Link',
-      description: 'Terjadi kesalahan saat mengambil data link.',
-      variant: 'destructive'
-    });
-    setUploadedLinks([]);
-  } finally {
-    setLoadingLinks(false);
-  }
-};
+      setUploadedLinks(allLinks);
+    } catch (err) {
+      console.error('Error fetching links', err);
+      toast({
+        title: 'Gagal Memuat Daftar Link',
+        description: 'Terjadi kesalahan saat mengambil data link.',
+        variant: 'destructive'
+      });
+      setUploadedLinks([]);
+    } finally {
+      setLoadingLinks(false);
+    }
+  };
 
 
 
@@ -335,136 +342,136 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-          <Header />
+      <Header />
 
-          <main className="pt-24 pb-16 px-4 md:px-8 relative">
-            <div className="absolute top-0 right-0 w-1/3 h-96 bg-gradient-to-bl from-blue-500/10 to-purple-500/10 rounded-bl-full -z-10"></div>
-            <div className="absolute bottom-0 left-0 w-1/4 h-64 bg-gradient-to-tr from-indigo-500/10 to-purple-500/10 rounded-tr-full -z-10"></div>
-            <div className="absolute top-1/4 left-1/3 w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-            <div className="absolute top-1/2 right-1/4 w-3 h-3 bg-purple-400 rounded-full animate-pulse delay-300"></div>
-            <div className="absolute bottom-1/4 left-1/4 w-2 h-2 bg-indigo-400 rounded-full animate-pulse delay-700"></div>
+      <main className="pt-24 pb-16 px-4 md:px-8 relative">
+        <div className="absolute top-0 right-0 w-1/3 h-96 bg-gradient-to-bl from-blue-500/10 to-purple-500/10 rounded-bl-full -z-10"></div>
+        <div className="absolute bottom-0 left-0 w-1/4 h-64 bg-gradient-to-tr from-indigo-500/10 to-purple-500/10 rounded-tr-full -z-10"></div>
+        <div className="absolute top-1/4 left-1/3 w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+        <div className="absolute top-1/2 right-1/4 w-3 h-3 bg-purple-400 rounded-full animate-pulse delay-300"></div>
+        <div className="absolute bottom-1/4 left-1/4 w-2 h-2 bg-indigo-400 rounded-full animate-pulse delay-700"></div>
 
-            <div className="max-w-7xl mx-auto">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10">
+            <div>
+              <div className="flex items-center">
+                <span className="inline-block w-2 h-10 bg-gradient-to-b from-blue-500 to-purple-600 rounded-full mr-3"></span>
+                <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Pusat Dokumen</h1>
+                <Sparkles className="h-6 w-6 ml-2 text-amber-500" />
+              </div>
+              <p className="text-slate-600 mt-2 ml-5 text-lg">Akses dan kelola dokumen akademik Anda</p>
+            </div>
+            <div className="mt-4 md:mt-0">
+              <Button
+                onClick={() => { fetchFlaskDocuments(); fetchLinkList(); }}
+                className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 text-white shadow-md transition-all hover:shadow-lg hover:scale-105 rounded-xl"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh Data
+              </Button>
+            </div>
+          </div>
+
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-md border border-slate-200/50 p-6 mb-10 transform hover:shadow-lg transition-all">
+            <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4">
+              <div className="relative flex-grow">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Cari dokumen atau tautan..."
+                  className="pl-12 pr-4 py-3 w-full border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all bg-white/70"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <select
+                  className="px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm appearance-none bg-white/70 bg-no-repeat bg-[right_1rem_center] bg-[length:1em] transition-all pr-10"
+                  style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E\")" }}
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                >
+                  <option value="all">Semua Tipe</option>
+                  <option value="Dokumen Umum'">Dokumen Umum</option>
+                  <option value="Dokumen_MataKuliah">Dokumen Mata Kuliah</option>
+                </select>
+                <select
+                  className="px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm appearance-none bg-white/70 bg-no-repeat bg-[right_1rem_center] bg-[length:1em] transition-all pr-10"
+                  style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E\")" }}
+                  value={sortOption}
+                  onChange={(e) => {
+                    const newSortOption = e.target.value;
+                    // Default to name_asc if a date sort is chosen but not applicable
+                    if ((newSortOption === 'newest' || newSortOption === 'oldest') && activeMainTab === 'files') {
+                      // For files, if createdAt is not available, these will effectively sort by name due to fallback in sort logic
+                      setSortOption(newSortOption);
+                    } else if ((newSortOption === 'newest' || newSortOption === 'oldest') && activeMainTab === 'links') {
+                      // For links, newest/oldest will sort by name
+                      setSortOption(newSortOption);
+                    }
+                    else {
+                      setSortOption(newSortOption);
+                    }
+                  }}
+                >
+                  {/* <option value="newest">Terbaru</option> */}
+                  {/* <option value="oldest">Terlama</option> */}
+                  <option value="name_asc">Nama (A-Z)</option>
+                  <option value="name_desc">Nama (Z-A)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10"> {/* Changed to 2 cols */}
+            <Card className="p-6 border-none overflow-hidden bg-gradient-to-br from-blue-50 to-blue-100 shadow-md hover:shadow-lg transition-all transform hover:-translate-y-1 rounded-2xl">
+              <div className="flex items-center">
+                <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-4 rounded-xl mr-5 shadow-lg">
+                  <FileText className="h-7 w-7 text-white" />
+                </div>
                 <div>
-                  <div className="flex items-center">
-                    <span className="inline-block w-2 h-10 bg-gradient-to-b from-blue-500 to-purple-600 rounded-full mr-3"></span>
-                    <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Pusat Dokumen</h1>
-                    <Sparkles className="h-6 w-6 ml-2 text-amber-500" />
-                  </div>
-                  <p className="text-slate-600 mt-2 ml-5 text-lg">Akses dan kelola dokumen akademik Anda</p>
-                </div>
-                <div className="mt-4 md:mt-0">
-                  <Button
-                    onClick={() => { fetchFlaskDocuments(); fetchLinkList(); }}
-                    className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 text-white shadow-md transition-all hover:shadow-lg hover:scale-105 rounded-xl"
-                  >
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Refresh Data
-                  </Button>
+                  <p className="text-sm text-blue-900/80 font-medium">Total File Dokumen</p>
+                  <p className="text-2xl font-bold text-blue-900">{flaskDocuments.length}</p>
                 </div>
               </div>
-
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-md border border-slate-200/50 p-6 mb-10 transform hover:shadow-lg transition-all">
-                <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4">
-                  <div className="relative flex-grow">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Cari dokumen atau tautan..."
-                      className="pl-12 pr-4 py-3 w-full border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all bg-white/70"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                  </div>
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <select
-                      className="px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm appearance-none bg-white/70 bg-no-repeat bg-[right_1rem_center] bg-[length:1em] transition-all pr-10"
-                      style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E\")" }}
-                      value={filterType}
-                      onChange={(e) => setFilterType(e.target.value)}
-                    >
-                      <option value="all">Semua Tipe</option>
-                      <option value="Dokumen Umum'">Dokumen Umum</option>
-                      <option value="Dokumen_MataKuliah">Dokumen Mata Kuliah</option>
-                    </select>
-                    <select
-                      className="px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm appearance-none bg-white/70 bg-no-repeat bg-[right_1rem_center] bg-[length:1em] transition-all pr-10"
-                      style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E\")" }}
-                      value={sortOption}
-                      onChange={(e) => {
-                        const newSortOption = e.target.value;
-                        // Default to name_asc if a date sort is chosen but not applicable
-                        if ((newSortOption === 'newest' || newSortOption === 'oldest') && activeMainTab === 'files') {
-                           // For files, if createdAt is not available, these will effectively sort by name due to fallback in sort logic
-                           setSortOption(newSortOption);
-                        } else if ((newSortOption === 'newest' || newSortOption === 'oldest') && activeMainTab === 'links') {
-                           // For links, newest/oldest will sort by name
-                           setSortOption(newSortOption);
-                        }
-                        else {
-                          setSortOption(newSortOption);
-                        }
-                      }}
-                    >
-                      {/* <option value="newest">Terbaru</option> */}
-                      {/* <option value="oldest">Terlama</option> */}
-                      <option value="name_asc">Nama (A-Z)</option>
-                      <option value="name_desc">Nama (Z-A)</option>
-                    </select>
-                  </div>
+            </Card>
+            <Card className="p-6 border-none overflow-hidden bg-gradient-to-br from-green-50 to-green-100 shadow-md hover:shadow-lg transition-all transform hover:-translate-y-1 rounded-2xl">
+              <div className="flex items-center">
+                <div className="bg-gradient-to-br from-green-500 to-teal-600 p-4 rounded-xl mr-5 shadow-lg">
+                  <LinkIcon className="h-7 w-7 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm text-green-900/80 font-medium">Total Tautan Dokumen</p>
+                  <p className="text-2xl font-bold text-green-900">{uploadedLinks.length}</p>
                 </div>
               </div>
+            </Card>
+            {/* Pembaruan Terakhir Card Removed */}
+          </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10"> {/* Changed to 2 cols */}
-                <Card className="p-6 border-none overflow-hidden bg-gradient-to-br from-blue-50 to-blue-100 shadow-md hover:shadow-lg transition-all transform hover:-translate-y-1 rounded-2xl">
-                  <div className="flex items-center">
-                    <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-4 rounded-xl mr-5 shadow-lg">
-                      <FileText className="h-7 w-7 text-white" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-blue-900/80 font-medium">Total File Dokumen</p>
-                      <p className="text-2xl font-bold text-blue-900">{flaskDocuments.length}</p>
-                    </div>
-                  </div>
-                </Card>
-                <Card className="p-6 border-none overflow-hidden bg-gradient-to-br from-green-50 to-green-100 shadow-md hover:shadow-lg transition-all transform hover:-translate-y-1 rounded-2xl">
-                  <div className="flex items-center">
-                    <div className="bg-gradient-to-br from-green-500 to-teal-600 p-4 rounded-xl mr-5 shadow-lg">
-                      <LinkIcon className="h-7 w-7 text-white" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-green-900/80 font-medium">Total Tautan Dokumen</p>
-                      <p className="text-2xl font-bold text-green-900">{uploadedLinks.length}</p>
-                    </div>
-                  </div>
-                </Card>
-                {/* Pembaruan Terakhir Card Removed */}
-              </div>
+          <Tabs defaultValue="files" value={activeMainTab} onValueChange={setActiveMainTab} className="mt-10">
+            <TabsList className="grid w-full grid-cols-2 md:grid-cols-2 gap-2 mb-8 p-1 bg-slate-100/70 backdrop-blur-sm rounded-xl shadow-sm border border-slate-200/60">
+              <TabsTrigger
+                value="files"
+                className="py-3 px-4 rounded-lg text-sm font-medium transition-all data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md"
+              >
+                <FileText className="h-4 w-4 mr-2 inline-block" />
+                File Dokumen
+              </TabsTrigger>
+              <TabsTrigger
+                value="links"
+                className="py-3 px-4 rounded-lg text-sm font-medium transition-all data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-md"
+              >
+                <LinkIcon className="h-4 w-4 mr-2 inline-block" />
+                Tautan Dokumen
+              </TabsTrigger>
+            </TabsList>
 
-              <Tabs defaultValue="files" value={activeMainTab} onValueChange={setActiveMainTab} className="mt-10">
-                <TabsList className="grid w-full grid-cols-2 md:grid-cols-2 gap-2 mb-8 p-1 bg-slate-100/70 backdrop-blur-sm rounded-xl shadow-sm border border-slate-200/60">
-                  <TabsTrigger 
-                    value="files" 
-                    className="py-3 px-4 rounded-lg text-sm font-medium transition-all data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md"
-                  >
-                    <FileText className="h-4 w-4 mr-2 inline-block" />
-                    File Dokumen
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="links"
-                    className="py-3 px-4 rounded-lg text-sm font-medium transition-all data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-md"
-                  >
-                    <LinkIcon className="h-4 w-4 mr-2 inline-block" />
-                    Tautan Dokumen
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="files">
-                  <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-slate-200/50 p-6 md:p-8">
-                    {/* Content for File Dokumen Saya is already here */}
-                    {loadingDocuments ? (
-                      <div className="py-16 text-center">
+            <TabsContent value="files">
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-slate-200/50 p-6 md:p-8">
+                {/* Content for File Dokumen Saya is already here */}
+                {loadingDocuments ? (
+                  <div className="py-16 text-center">
                     <div className="h-16 w-16 mx-auto relative">
                       <div className="absolute inset-0 rounded-full border-t-4 border-blue-500 animate-spin"></div>
                       <div className="absolute inset-[4px] rounded-full border-r-4 border-indigo-500 animate-spin animate-reverse"></div>
@@ -506,7 +513,7 @@ const Dashboard: React.FC = () => {
                                 </span>
                               </div>
                               <h3 className="font-semibold text-slate-800 text-xl mb-1 group-hover:text-blue-700 transition-colors">{doc.namaDokumen}</h3>
-                              {/* Timestamp display removed */}
+                              <p className="text-xs text-slate-500">Diunggah: {doc.createdAt}</p>
                             </div>
                           </div>
                           <div className="flex ml-auto">
@@ -537,7 +544,7 @@ const Dashboard: React.FC = () => {
                                 size="sm"
                                 className="ml-auto rounded-lg text-blue-600 border-blue-200 hover:bg-blue-50"
                                 onClick={(e) => {
-                                  e.stopPropagation(); 
+                                  e.stopPropagation();
                                   window.open(doc.fileUrl, '_blank');
                                 }}
                               >
@@ -552,101 +559,102 @@ const Dashboard: React.FC = () => {
                   </div>
                 )}
               </div>
-              </TabsContent>
-              <TabsContent value="links">
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-slate-200/50 p-6 md:p-8">
-                  <h2 className="text-2xl font-bold bg-gradient-to-r from-green-600 to-teal-600 bg-clip-text text-transparent inline-block mb-8">
-                    <LinkIcon className="h-6 w-6 inline-block mr-2 align-text-bottom" />
-                    Tautan Dokumen Penting
-                  </h2>
-                  {loadingLinks ? (
-                    <div className="py-16 text-center">
-                      <div className="h-16 w-16 mx-auto relative">
-                        <div className="absolute inset-0 rounded-full border-t-4 border-green-500 animate-spin"></div>
-                      </div>
-                      <p className="mt-6 text-lg font-medium text-slate-600 animate-pulse">Memuat tautan...</p>
+            </TabsContent>
+            <TabsContent value="links">
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-slate-200/50 p-6 md:p-8">
+                <h2 className="text-2xl font-bold bg-gradient-to-r from-green-600 to-teal-600 bg-clip-text text-transparent inline-block mb-8">
+                  <LinkIcon className="h-6 w-6 inline-block mr-2 align-text-bottom" />
+                  Tautan Dokumen Penting
+                </h2>
+                {loadingLinks ? (
+                  <div className="py-16 text-center">
+                    <div className="h-16 w-16 mx-auto relative">
+                      <div className="absolute inset-0 rounded-full border-t-4 border-green-500 animate-spin"></div>
                     </div>
-                  ) : filteredUploadedLinks.length === 0 ? (
-                    <div className="py-16 text-center">
-                      <div className="w-24 h-24 mx-auto bg-slate-100 rounded-full flex items-center justify-center mb-4">
-                        <LinkIcon className="h-12 w-12 text-slate-300" />
-                      </div>
-                      <h3 className="text-xl font-medium text-slate-700 mb-2">Tidak ada tautan dokumen ditemukan</h3>
-                      <p className="text-slate-500">Belum ada tautan dokumen yang ditambahkan atau sesuai filter.</p>
+                    <p className="mt-6 text-lg font-medium text-slate-600 animate-pulse">Memuat tautan...</p>
+                  </div>
+                ) : filteredUploadedLinks.length === 0 ? (
+                  <div className="py-16 text-center">
+                    <div className="w-24 h-24 mx-auto bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                      <LinkIcon className="h-12 w-12 text-slate-300" />
                     </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {filteredUploadedLinks.map(linkItem => (
-                        <Card key={linkItem.id} className="border-slate-200/80 shadow-md hover:shadow-lg transition-all duration-300 rounded-xl overflow-hidden group flex flex-col">
-                          <div className="p-5 flex-grow">
-                            <div className="flex items-start space-x-3 mb-3">
-                              <div className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center shadow-sm ${linkItem.kategori === 'umum' ? 'bg-gradient-to-tr from-sky-400 to-blue-500' : 'bg-gradient-to-tr from-emerald-400 to-green-500'}`}>
-                                <LinkIcon className="h-6 w-6 text-white" />
-                              </div>
-                              <div>
-                                <h3 className="font-semibold text-slate-800 text-lg group-hover:text-sky-600 transition-colors truncate" title={linkItem.nama}>
-                                  {linkItem.nama}
-                                </h3>
-                                <div className="flex items-center space-x-2 mt-1">
-                                  <Badge variant="outline" className={`text-xs ${linkItem.kategori === 'umum' ? 'border-sky-300 text-sky-700 bg-sky-50' : 'border-green-300 text-green-700 bg-green-50'}`}>
-                                    {linkItem.kategori === 'umum' ? 'Umum' : 'Mahasiswa'}
-                                  </Badge>
-                                  <Badge variant="secondary" className="text-xs">
-                                    {linkItem.jenis.replace(/_/g, ' ')}
-                                  </Badge>
-                                </div>
+                    <h3 className="text-xl font-medium text-slate-700 mb-2">Tidak ada tautan dokumen ditemukan</h3>
+                    <p className="text-slate-500">Belum ada tautan dokumen yang ditambahkan atau sesuai filter.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredUploadedLinks.map(linkItem => (
+                      <Card key={linkItem.id} className="border-slate-200/80 shadow-md hover:shadow-lg transition-all duration-300 rounded-xl overflow-hidden group flex flex-col">
+                        <div className="p-5 flex-grow">
+                          <div className="flex items-start space-x-3 mb-3">
+                            <div className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center shadow-sm ${linkItem.kategori === 'umum' ? 'bg-gradient-to-tr from-sky-400 to-blue-500' : 'bg-gradient-to-tr from-emerald-400 to-green-500'}`}>
+                              <LinkIcon className="h-6 w-6 text-white" />
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-slate-800 text-lg group-hover:text-sky-600 transition-colors truncate" title={linkItem.nama}>
+                                {linkItem.nama}
+                              </h3>
+                              <div className="flex items-center space-x-2 mt-1">
+                                <Badge variant="outline" className={`text-xs ${linkItem.kategori === 'umum' ? 'border-sky-300 text-sky-700 bg-sky-50' : 'border-green-300 text-green-700 bg-green-50'}`}>
+                                  {linkItem.kategori === 'umum' ? 'Umum' : 'Mahasiswa'}
+                                </Badge>
+                                <Badge variant="secondary" className="text-xs">
+                                  {linkItem.jenis.replace(/_/g, ' ')}
+                                </Badge>
+                                <Badge variant="outline" className="text-xs text-slate-500">{linkItem.diunggah}</Badge>
                               </div>
                             </div>
-                            <CollapsibleMessage text={linkItem.deskripsi} maxLength={80} />
                           </div>
-                          <div className="p-4 bg-slate-50 border-t border-slate-200/80">
-                            <Button
-                              variant="default"
-                              size="sm"
-                              className="w-full bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white shadow hover:shadow-md transition-all rounded-md group-hover:scale-[1.02]"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                window.open(linkItem.link, '_blank', 'noopener,noreferrer');
-                              }}
-                            >
-                              <ExternalLink className="h-4 w-4 mr-2" />
-                              Buka Link
-                            </Button>
-                          </div>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </TabsContent>
-            </Tabs>
-          </div>
-        </main>
-
-        {/* FlaskDocument Detail Modal */}
-        {selectedDocument && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all">
-            <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl animate-scale-in border border-slate-100">
-              <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-gradient-to-r from-blue-50 to-violet-50">
-                <h3 className="text-xl font-bold text-slate-800">{selectedDocument.namaDokumen}</h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-9 w-9 p-0 rounded-full hover:bg-slate-200/70 transition-colors"
-                  onClick={closeDocumentDetail}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                  </svg>
-                </Button>
+                          <CollapsibleMessage text={linkItem.deskripsi} maxLength={80} />
+                        </div>
+                        <div className="p-4 bg-slate-50 border-t border-slate-200/80">
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="w-full bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white shadow hover:shadow-md transition-all rounded-md group-hover:scale-[1.02]"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(linkItem.link, '_blank', 'noopener,noreferrer');
+                            }}
+                          >
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            Buka Link
+                          </Button>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
-                <div className="flex items-center mb-6">
-                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${selectedDocument.jenisDokumenDisplay === 'Dokumen Umum'
+            </TabsContent>
+          </Tabs>
+        </div>
+      </main>
+
+      {/* FlaskDocument Detail Modal */}
+      {selectedDocument && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl animate-scale-in border border-slate-100">
+            <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-gradient-to-r from-blue-50 to-violet-50">
+              <h3 className="text-xl font-bold text-slate-800">{selectedDocument.namaDokumen}</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-9 w-9 p-0 rounded-full hover:bg-slate-200/70 transition-colors"
+                onClick={closeDocumentDetail}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </Button>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+              <div className="flex items-center mb-6">
+                <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${selectedDocument.jenisDokumenDisplay === 'Dokumen Umum'
                   ? 'bg-blue-100 text-blue-800 border border-blue-200'
                   : 'bg-amber-100 text-amber-800 border border-amber-200'
-              }`}>
+                  }`}>
                   <Tag className="h-3 w-3 inline mr-1" />
                   {selectedDocument.jenisDokumenDisplay === 'Dokumen Umum' ? 'Administrasi' : 'Mata Kuliah'}
                 </span>
@@ -659,9 +667,12 @@ const Dashboard: React.FC = () => {
                       <span className="font-medium w-36 text-slate-500">ID Dokumen:</span>
                       <span className="text-slate-800 font-mono bg-slate-100 px-2 py-1 rounded text-sm">{selectedDocument.key}</span>
                     </div>
-                      {/* Timestamp display removed from modal */}
+                    <div className="flex items-center">
+                      <span className="font-medium w-36 text-slate-500">Waktu Unggah:</span>
+                      <span className="text-slate-800">{selectedDocument.createdAt}</span>
                     </div>
                   </div>
+                </div>
               </div>
 
               <h4 className="font-bold text-xl mb-6 pb-2 border-b border-slate-200 text-slate-800 flex items-center">
@@ -717,11 +728,11 @@ const Dashboard: React.FC = () => {
               </Button>
             </div>
           </div>
-      </div>
-    )}
-    <Footer />
-  </div>
+        </div>
+      )}
+      <Footer />
+    </div>
   );
 };
 
-  export default Dashboard;
+export default Dashboard;
