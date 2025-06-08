@@ -1,4 +1,4 @@
-# Panduan Instalasi dan Penggunaan Knowledge Management System Departemen Teknologi Informasi
+# Panduan Instalasi dan Penggunaan Knowledge Management System Departemen Teknologi Informasi (CATTY)
 
 ## Pendahuluan
 Sistem Knowledge Management ini terdiri dari dua bagian utama:
