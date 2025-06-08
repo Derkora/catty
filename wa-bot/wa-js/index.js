@@ -15,7 +15,7 @@ client.on('qr', async (qr) => {
     try {
         const qrDataURL = await qrcode.toDataURL(qr);
         console.log("📨 Mengirim QR ke backend Flask...");
-        await axios.post('http://flask:5001/qr', { qr: qrDataURL });
+        await axios.post('http://wa-flask:5001/qr', { qr: qrDataURL });
     } catch (err) {
         console.error("❌ Gagal kirim QR:", err.message);
     }
@@ -24,7 +24,7 @@ client.on('qr', async (qr) => {
 client.once('ready', async () => {
     console.log('✅ WhatsApp client is ready!');
     try {
-        await axios.post('http://flask:5001/status', { status: 'connected' });
+        await axios.post('http://wa-flask:5001/status', { status: 'connected' });
     } catch (err) {
         console.error("❌ Gagal kirim status ke Flask:", err.message);
     }
@@ -33,7 +33,7 @@ client.once('ready', async () => {
 client.on('disconnected', async (reason) => {
     console.warn(`⚠️ WhatsApp client disconnected: ${reason}`);
     try {
-        await axios.post('http://flask:5001/status', { status: 'disconnected' });
+        await axios.post('http://wa-flask:5001/status', { status: 'disconnected' });
     } catch (err) {
         console.error("❌ Gagal kirim status disconnect ke Flask:", err.message);
     }
