@@ -1,82 +1,137 @@
-# Panduan Instalasi dan Penggunaan Knowledge Management System Departemen Teknologi Informasi (CATTY)
+# Sistem Manajemen Pengetahuan (CATTY) - Departemen Teknologi Informasi ITS
 
-## Pendahuluan
-Sistem Knowledge Management ini terdiri dari dua bagian utama:
-- **Frontend**: Aplikasi web yang dibangun dengan React (dalam folder 'FECapstone')
-- **Backend**: Server API yang dibangun dengan Strapi CMS (dalam folder 'BE-strapi')
-- **Chatbot**: Server Chatbot dengan model Qwen (dalam folder 'BE-flask')
+Proyek ini terdiri dari tiga komponen utama:
+- **Frontend**: Aplikasi web yang dibangun dengan React.
+- **Backend**: Server API yang dikelola menggunakan Strapi CMS.
+- **Chatbot**: Layanan chatbot cerdas yang didukung oleh model Qwen melalui server Flask.
 
-## Keperluan
-- **docker**: untuk menjalankan seluruh instance
+---
 
-## Cara Menjalankan
-### 1. Clone Repository ini
-### 2. Setup Strapi
-#### a. Membuat file `.env` pada directory `/capstone-knowledge-management-system/BE-strapi`
-akses link berikut untuk mendapatkan isi file env
-https://drive.google.com/drive/folders/1B9l45pT5-rzTfgudytjHPOS3ml4Pg4sJ?usp=sharing
+### Tim Pengembang
 
-### 3. Pastikan docker berjalan
-#### a. Check status Docker 
+Berikut adalah tim yang berkontribusi dalam pengembangan proyek ini:
+
+| Nama              | NRP                         | GitHub                                 |
+| :---------------- | :---------------------------- | :-------------------------------------: |
+| Steven Figo      | 5027221021          | [@Derkora](https://github.com/Derkora)      |
+| Moch. Zidan Hadipratama     | 5027221052              | [@ZidanHadipratama](https://github.com/ZidanHadipratama)     |
+| Naufan Zaki Luqmanulhakim   | 5027221065  | [@NaufanZaki](https://github.com/NaufanZaki)   |
+
+---
+
+### Tech Stack
+
+| Komponen     | Teknologi                       |
+| :----------- | :------------------------------ |
+| **Frontend** | `React`, `Vite`, `Tailwind CSS` |
+| **Backend** | `Strapi CMS`, `Node.js`         |
+| **Chatbot** | `Flask`, `Python`, `Qwen Model` |
+| **Database** | `SQLite`                    |
+| **Deployment**| `Docker`                        |
+
+---
+
+## Panduan Instalasi dan Penggunaan
+
+### Prasyarat
+
+Sebelum memulai, pastikan Anda telah menginstal **[Docker](https://www.docker.com/get-started)** dan Docker Daemon sedang berjalan di sistem Anda.
+
+### 1. Clone Repositori
+Pertama, clone repositori ini ke mesin lokal Anda.
+```bash
+git clone [https://github.com/username/capstone-knowledge-management-system.git](https://github.com/username/capstone-knowledge-management-system.git)
+cd capstone-knowledge-management-system
 ```
+> **Catatan:** Ganti `username/capstone-knowledge-management-system` dengan URL repositori Anda yang sebenarnya.
+
+### 2. Konfigurasi Backend (Strapi)
+Backend Strapi memerlukan file konfigurasi environment (`.env`) untuk terhubung ke database dan layanan lainnya.
+
+- Buat file baru bernama `.env` di dalam direktori `BE-strapi/`.
+- Isi dari file `.env` dapat diakses dan disalin dari tautan Google Drive berikut:
+  **[Akses File .env](https://drive.google.com/drive/folders/1B9l45pT5-rzTfgudytjHPOS3ml4Pg4sJ?usp=sharing)**
+
+### 3. Jalankan Proyek dengan Docker
+Pastikan service Docker sudah berjalan sebelum melanjutkan.
+
+**a. Verifikasi Status Docker (Opsional)**
+```bash
 sudo systemctl status docker
 ```
-#### b. Start Docker
-```
-sudo systemctl start docker
-```
-#### c. Verifikasi berjalannya Docker
-```
-sudo docker run hello-world
-```
-### 4. Build image project
-```
+Jika tidak aktif, jalankan dengan `sudo systemctl start docker`.
+
+**b. Build Docker Image**
+Build semua image yang dibutuhkan untuk frontend, backend, dan chatbot. Opsi `--no-cache` memastikan image dibangun dari awal.
+```bash
 docker compose build --no-cache
 ```
-### 5. Start container project
-#### Start tanpa melihat log
-```
-docker compose up -d
-```
-#### Start dengan log
-```
-docker compose up
-```
-### 6. Akses Strapi UI pada browser dengan URL `http://localhost:1337/admin`
 
-### 7. Setup Role
-#### a. Menambahkan Role
-- Pada tab `Settings` -> `Users & Permissions Plugin` -> `Add new Role`
+**c. Jalankan Kontainer Docker**
+Anda dapat menjalankan semua layanan secara bersamaan menggunakan Docker Compose.
+
+- Untuk menjalankan di *background* (detached mode):
+  ```bash
+  docker compose up -d
+  ```
+- Untuk menjalankan dan melihat log secara *real-time* di terminal:
+  ```bash
+  docker compose up
+  ```
+
+### 4. Konfigurasi Awal Strapi
+Setelah kontainer berjalan, Anda perlu melakukan konfigurasi awal pada Strapi melalui antarmuka admin.
+
+**a. Akses Panel Admin Strapi**
+Buka browser dan navigasi ke `http://localhost:1337/admin`. Buat akun admin pertama Anda saat diminta.
+
+**b. Tambahkan Roles & Permissions**
+Navigasi ke `Settings` -> `Users & Permissions Plugin` -> `Roles`.
+
 ![UI Role Strapi](images/image.png)
-- Tambahkan Role `Admin IT` dan `Mahasiswa IT`
-- Berikan Permission
-    - Admin IT: 
-        - Dokumen (Semua)
-        - History (Semua)
-        - Pertanyaan Chatbot (Semua)
-        - Upload (Semua)
-        - Users Pemissions (Semua)
-    <br>***Press `SAVE` ketika sudah selesai memberikan Permissions***
-    - Mahasiswa IT:
-        - Dokumen (create, find, findOne)
-        - History (create)
-        - Pertanyaan Chatbot (find, findOne)
-        - Upload (find, findOne)
-        - Users Permissions
-            - Auth: kecuali resetPassword, changePassword
-            - Permissions: getPermissions 
-            - Role: find, findOne
-            - User: findOne, find, me
-            <br>***Press `SAVE` ketika sudah selesai memberikan Permissions***
-- Membuat Role Admin Pertama
-    - Akses Tab `Content Manager` -> `User`
-    ![Tab User](images/image-1.png)
-    - Create new entry lalu isi konten: 
-        - username
-        - email
-        - password
-        - confirmed: TRUE
-        - role: Admin IT
-        - history: hiraukan
-    - `Save`
-### 8. Website sudah bisa diakses pada `http://localhost:3000/`
+
+Buat dua role baru dengan konfigurasi izin sebagai berikut:
+
+- **Role 1: `Admin IT`**
+  Berikan izin penuh (semua *actions*) untuk koleksi berikut:
+  - `Dokumen`
+  - `History`
+  - `Pertanyaan Chatbot`
+  - `Upload`
+  - `Users Pemissions`
+  > **PENTING:** Klik tombol **Save** setelah selesai.
+
+- **Role 2: `Mahasiswa IT`**
+  Berikan izin terbatas sebagai berikut:
+  - `Dokumen`: `create`, `find`, `findOne`
+  - `History`: `create`
+  - `Pertanyaan Chatbot`: `find`, `findOne`
+  - `Upload`: `find`, `findOne`
+  - `Users Permissions`:
+    - `Auth`: Izinkan semua kecuali `resetPassword` dan `changePassword`.
+    - `Permissions`: `getPermissions`
+    - `Role`: `find`, `findOne`
+    - `User`: `findOne`, `find`, `me`
+  > **PENTING:** Klik tombol **Save** setelah selesai.
+
+**c. Buat User Admin Pertama**
+Agar sistem memiliki user dengan role `Admin IT`, buat entri baru.
+- Buka tab `Content Manager` -> `User`.
+- Klik `Create new entry`.
+  ![Tab User](images/image-1.png)
+- Isi form dengan data berikut:
+  - `username`: (pilih username Anda)
+  - `email`: (masukkan email yang valid)
+  - `password`: (buat password yang aman)
+  - `confirmed`: **TRUE**
+  - `role`: **Admin IT**
+  - `history`: (biarkan kosong)
+- Klik **Save** untuk menyimpan.
+
+### 5. Akses Aplikasi Web
+Selamat! Semua layanan sudah berjalan dan terkonfigurasi. Anda kini dapat mengakses aplikasi web utama melalui browser Anda.
+
+- **URL Aplikasi**: **`http://localhost:3000/`**
+
+---
+
