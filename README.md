@@ -40,10 +40,9 @@ Sebelum memulai, pastikan Anda telah menginstal **[Docker](https://www.docker.co
 ### 1. Clone Repositori
 Pertama, clone repositori ini ke mesin lokal Anda.
 ```bash
-git clone [https://github.com/username/capstone-knowledge-management-system.git](https://github.com/username/capstone-knowledge-management-system.git)
+git clone [https://github.com/Derkora/capstone-knowledge-management-system.git](https://github.com/Derkora/capstone-knowledge-management-system.git)
 cd capstone-knowledge-management-system
 ```
-> **Catatan:** Ganti `username/capstone-knowledge-management-system` dengan URL repositori Anda yang sebenarnya.
 
 ### 2. Konfigurasi Backend (Strapi)
 Backend Strapi memerlukan file konfigurasi environment (`.env`) untuk terhubung ke database dan layanan lainnya.
