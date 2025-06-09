@@ -4,7 +4,7 @@ services:
     build: ./ollama
     container_name: ollama
     ports:
-      - "11434:11434"
+      - "127.0.0.1:11434:11434"
     volumes:
       - ./ollama/ollama-data:/root/.ollama
     networks:

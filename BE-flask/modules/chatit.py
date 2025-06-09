@@ -24,7 +24,7 @@ VECTOR_DIR = "data/vectorstores"
 
 # Initialize heavy resources once
 embed = HuggingFaceEmbeddings()
-llm = Ollama(model="qwen2.5:7b-instruct", base_url="http://host.docker.internal:11434")
+llm = Ollama(model="qwen2.5:7b-instruct", base_url="http://ollama:11434")
 # llm = Ollama(model="qwen2.5:7b-instruct", base_url="http://localhost:11434", temperature=0.8, top_p=0.7)
 
 # Global vectorstore cache with thread lock
