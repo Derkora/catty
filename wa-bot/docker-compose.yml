@@ -1,5 +1,5 @@
 services:
-  flask:
+  wa-flask:
     build: ./wa-flask
     container_name: wa-flask
     ports:
@@ -10,7 +10,7 @@ services:
     networks:
       - ai-network
 
-  wa-bot:
+  wa-js:
     build: ./wa-js
     container_name: wa-js
     volumes:

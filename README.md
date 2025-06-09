@@ -40,8 +40,8 @@ Sebelum memulai, pastikan Anda telah menginstal **[Docker](https://www.docker.co
 ### 1. Clone Repositori
 Pertama, clone repositori ini ke mesin lokal Anda.
 ```bash
-git clone [https://github.com/Derkora/capstone-knowledge-management-system.git](https://github.com/Derkora/capstone-knowledge-management-system.git)
-cd capstone-knowledge-management-system
+git clone https://github.com/Derkora/catty.git
+cd catty
 ```
 
 ### 2. Konfigurasi Backend (Strapi)
@@ -51,7 +51,31 @@ Backend Strapi memerlukan file konfigurasi environment (`.env`) untuk terhubung 
 - Isi dari file `.env` dapat diakses dan disalin dari tautan Google Drive berikut:
   **[Akses File .env](https://drive.google.com/drive/folders/1B9l45pT5-rzTfgudytjHPOS3ml4Pg4sJ?usp=sharing)**
 
-### 3. Jalankan Proyek dengan Docker
+### Install Container GPU (Ubuntu)
+1. Konfigurasi Repository NVIDIA
+```sh
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey \
+    | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+
+curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list \
+    | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' \
+    | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+sudo apt-get update
+```
+
+2. Instal Toolkit NVIDIA
+```sh
+sudo apt-get install -y nvidia-container-toolkit
+```
+
+2. Konfigurasi Docker untuk Menggunakan Runtime NVIDIA
+```sh
+sudo nvidia-ctk runtime configure --runtime=docker
+sudo systemctl restart docker
+```
+
+### 4. Jalankan Proyek dengan Docker
 Pastikan service Docker sudah berjalan sebelum melanjutkan.
 
 **a. Verifikasi Status Docker (Opsional)**
@@ -60,7 +84,7 @@ sudo systemctl status docker
 ```
 Jika tidak aktif, jalankan dengan `sudo systemctl start docker`.
 
-**b. Build Docker Image**
+**b. Build Docker Compose**
 Build semua image yang dibutuhkan untuk frontend, backend, dan chatbot. Opsi `--no-cache` memastikan image dibangun dari awal.
 ```bash
 docker compose build --no-cache
@@ -78,7 +102,7 @@ Anda dapat menjalankan semua layanan secara bersamaan menggunakan Docker Compose
   docker compose up
   ```
 
-### 4. Konfigurasi Awal Strapi
+### 5. Konfigurasi Awal Strapi
 Setelah kontainer berjalan, Anda perlu melakukan konfigurasi awal pada Strapi melalui antarmuka admin.
 
 **a. Akses Panel Admin Strapi**
@@ -127,10 +151,9 @@ Agar sistem memiliki user dengan role `Admin IT`, buat entri baru.
   - `history`: (biarkan kosong)
 - Klik **Save** untuk menyimpan.
 
-### 5. Akses Aplikasi Web
+### 6. Akses Aplikasi Web
 Selamat! Semua layanan sudah berjalan dan terkonfigurasi. Anda kini dapat mengakses aplikasi web utama melalui browser Anda.
 
 - **URL Aplikasi**: **`http://localhost:3000/`**
-
 ---
 

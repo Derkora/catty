@@ -1,24 +1,20 @@
 services:
-  strapi:
-    build: ./BE-strapi
-    container_name: strapi
-    ports:
-      - "1337:1337"
-    environment:
-      NODE_ENV: development
-      DATABASE_CLIENT: sqlite
-    restart: unless-stopped
-    networks:
-      - ai-network
 
-  frontend:
-    build: ./FECapstone
-    container_name: frontend
+  ollama:
+    build: ./ollama
+    container_name: ollama
     ports:
-      - "3000:80"
-    restart: unless-stopped
+      - "11434:11434"
+    volumes:
+      - ./ollama/ollama-data:/root/.ollama
     networks:
       - ai-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    restart: always
 
   app:
     build: ./BE-flask
@@ -37,7 +33,28 @@ services:
         reservations:
           devices:
             - capabilities: [gpu]
-    restart: unless-stopped
+    restart: always
+
+  strapi:
+    build: ./BE-strapi
+    container_name: strapi
+    ports:
+      - "1337:1337"
+    environment:
+      NODE_ENV: development
+      DATABASE_CLIENT: sqlite
+    restart: always
+    networks:
+      - ai-network
+
+  frontend:
+    build: ./FECapstone
+    container_name: frontend
+    ports:
+      - "3000:80"
+    restart: always
+    networks:
+      - ai-network
 
   wa-flask:
     build: ./wa-bot/wa-flask
@@ -58,25 +75,6 @@ services:
     restart: always
     networks:
       - ai-network
-
-# Ketika sudah fix uncomment gunakan yang /ollama
-  # ollama:
-  #   image: ollama/ollama
-  #   container_name: ollama
-  #   ports:
-  #     - "11434:11434"
-  #   volumes:
-  #     - ollama-data:/root/.ollama
-  #     - ./ollama/entrypoint.sh:/app/entrypoint.sh
-  #   networks:
-  #     - ai-network
-  #   deploy:
-  #     resources:
-  #       reservations:
-  #         devices:
-  #           - capabilities: [gpu]
-  #   restart: unless-stopped
-  #   entrypoint: /app/entrypoint.sh
 
 networks:
   ai-network:
