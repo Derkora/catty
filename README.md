@@ -26,6 +26,7 @@ Berikut adalah tim yang berkontribusi dalam pengembangan proyek ini:
 | **Frontend** | `React`, `Vite`, `Tailwind CSS` |
 | **Backend** | `Strapi CMS`, `Node.js`         |
 | **Chatbot** | `Flask`, `Python`, `Qwen Model` |
+| **Wabot** | `Flask`, `Python`, `Node.js` |
 | **Database** | `SQLite`                    |
 | **Deployment**| `Docker`                        |
 
@@ -69,7 +70,7 @@ sudo apt-get update
 sudo apt-get install -y nvidia-container-toolkit
 ```
 
-2. Konfigurasi Docker untuk Menggunakan Runtime NVIDIA
+3. Konfigurasi Docker untuk Menggunakan Runtime NVIDIA
 ```sh
 sudo nvidia-ctk runtime configure --runtime=docker
 sudo systemctl restart docker
