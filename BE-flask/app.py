@@ -86,11 +86,12 @@ except Exception as e:
 # === Route for index.html ===
 @app.route('/')
 def serve_index():
-    try:
-        return send_from_directory('templates', 'index.html')
-    except Exception as e:
-        logger.error("Error serving index.html", exc_info=True)
-        return jsonify({"error": "Index not found"}), 500
+    # try:
+    #     return send_from_directory('templates', 'index.html')
+    # except Exception as e:
+    #     logger.error("Error serving index.html", exc_info=True)
+    #     return jsonify({"error": "Index not found"}), 500
+    return jsonify({"message": "This is a backend service. No frontend available."})
     
 @app.route('/get-file/<token>')
 def get_file_by_token(token):

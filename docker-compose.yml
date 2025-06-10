@@ -56,22 +56,11 @@ services:
     networks:
       - ai-network
 
-  wa-flask:
-    build: ./wa-bot/wa-flask
-    container_name: wa-flask
+  wa-js:
+    build: ./wa-bot
+    container_name: wa-js
     ports:
       - "5001:5001"
-    volumes:
-      - ./wa-bot/wa-flask:/app
-    restart: always
-    networks:
-      - ai-network
-
-  wa-js:
-    build: ./wa-bot/wa-js
-    container_name: wa-js
-    volumes:
-      - ./wa-bot/wa-js:/app
     restart: always
     networks:
       - ai-network

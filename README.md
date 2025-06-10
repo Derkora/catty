@@ -52,7 +52,7 @@ Backend Strapi memerlukan file konfigurasi environment (`.env`) untuk terhubung 
 - Isi dari file `.env` dapat diakses dan disalin dari tautan Google Drive berikut:
   **[Akses File .env](https://drive.google.com/drive/folders/1B9l45pT5-rzTfgudytjHPOS3ml4Pg4sJ?usp=sharing)**
 
-### Install Container GPU (Ubuntu)
+### 3 Install Container GPU (Ubuntu)
 1. Konfigurasi Repository NVIDIA
 ```sh
 curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey \
@@ -85,13 +85,19 @@ sudo systemctl status docker
 ```
 Jika tidak aktif, jalankan dengan `sudo systemctl start docker`.
 
-**b. Build Docker Compose**
+**b. Build Docker Network**
+Untuk membangun jaringan docker
+```sh
+docker network create ai-network
+```
+
+**c. Build Docker Compose**
 Build semua image yang dibutuhkan untuk frontend, backend, dan chatbot. Opsi `--no-cache` memastikan image dibangun dari awal.
 ```bash
 docker compose build --no-cache
 ```
 
-**c. Jalankan Kontainer Docker**
+**d. Jalankan Kontainer Docker**
 Anda dapat menjalankan semua layanan secara bersamaan menggunakan Docker Compose.
 
 - Untuk menjalankan di *background* (detached mode):

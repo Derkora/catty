@@ -2060,15 +2060,16 @@ const AdminDashboard: React.FC = () => {
                     <iframe
                       key={waIframeKey}
                       src={`http://localhost:5001/wa?refresh=${waIframeKey}`}
-                      title="WhatsApp Bot"
+                      title="WhatsApp QR"
                       width="100%"
                       height="100%"
                       style={{ border: '1px solid #e5e7eb', borderRadius: '8px', minHeight: '600px' }}
                     />
                   </div>
-                  <p className="mt-2 text-slate-500 text-sm">Scan QR tersebut dengan menggunakan fitur add device pada aplikasi Whatsapp</p>
+                  <p className="mt-2 text-slate-500 text-sm">Scan QR tersebut dengan menggunakan fitur add device pada aplikasi WhatsApp</p>
                 </Card>
               </TabsContent>
+
             </Tabs>
           </div>
         </main>

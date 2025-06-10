@@ -1,43 +1,73 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
 const axios = require('axios');
+const express = require('express');
+const path = require('path');
+
+const appServer = express();
+const PORT = 5001;
+
+let latestQR = '';
+let waStatus = 'Not connected';
+
+appServer.get('/wa', (req, res) => {
+    const html = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>QR WhatsApp Bot</title>
+        <style>
+            body { font-family: sans-serif; background: #f9f9f9; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+            img { border: 1px solid #ccc; padding: 10px; background: #fff; border-radius: 8px; }
+            .status { margin-top: 20px; font-size: 1.2em; color: #333; }
+        </style>
+    </head>
+    <body>
+        <h2>Scan QR WhatsApp</h2>
+        ${latestQR ? `<img src="${latestQR}" alt="QR Code" />` : '<p>QR belum tersedia.</p>'}
+        <div class="status"><h3>Status: ${waStatus}</h3></div>
+    </body>
+    </html>`;
+    res.send(html);
+});
+
+appServer.listen(PORT, () => {
+    console.log(`🌐 QR HTML Server running at http://localhost:${PORT}/wa`);
+});
 
 const client = new Client({
-    authStrategy: new LocalAuth(),
-    puppeteer: {
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-    }
+  authStrategy: new LocalAuth(),
+  puppeteer: {
+    executablePath: '/usr/bin/google-chrome', // <-- tambahkan ini
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  }
 });
+
 
 const greetedUsers = new Set();
 
 client.on('qr', async (qr) => {
     try {
-        const qrDataURL = await qrcode.toDataURL(qr);
-        console.log("📨 Mengirim QR ke backend Flask...");
-        await axios.post('http://wa-flask:5001/qr', { qr: qrDataURL });
+        latestQR = await qrcode.toDataURL(qr);  // <-- disimpan lokal
+        waStatus = 'QR tersedia, belum scan';
+        console.log('🔁 QR updated');
     } catch (err) {
-        console.error("❌ Gagal kirim QR:", err.message);
+        console.error('QR encode error:', err.message);
     }
 });
 
-client.once('ready', async () => {
+client.once('ready', () => {
+    waStatus = 'Connected';
     console.log('✅ WhatsApp client is ready!');
-    try {
-        await axios.post('http://wa-flask:5001/status', { status: 'connected' });
-    } catch (err) {
-        console.error("❌ Gagal kirim status ke Flask:", err.message);
-    }
 });
 
-client.on('disconnected', async (reason) => {
+client.on('disconnected', (reason) => {
+    waStatus = `Disconnected: ${reason}`;
     console.warn(`⚠️ WhatsApp client disconnected: ${reason}`);
-    try {
-        await axios.post('http://wa-flask:5001/status', { status: 'disconnected' });
-    } catch (err) {
-        console.error("❌ Gagal kirim status disconnect ke Flask:", err.message);
-    }
 });
+
 
 client.on('message_create', async (message) => {
     if (message.fromMe || message.from.includes('@g.us')) return;
