@@ -202,6 +202,10 @@ const AdminDashboard: React.FC = () => {
   });
   const [files, setFiles] = useState<File[]>([]); // For file input
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [waBotStatus, setWaBotStatus] = useState('Loading...');
+  const [waQrCodeUrl, setWaQrCodeUrl] = useState<string | null>(null);
+  const [isWaBotConnected, setIsWaBotConnected] = useState(false);
+  const [isWaLoading, setIsWaLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all'); // "all", "Dokumen_Umum", "Dokumen_Mahasiswa"
@@ -254,6 +258,8 @@ const AdminDashboard: React.FC = () => {
       [name]: value,
     }));
   };
+
+  
 
   // Removed unused function
 
@@ -379,7 +385,8 @@ const AdminDashboard: React.FC = () => {
     fetchHistories();
     fetchUsers();
     fetchChatbotQuestions(); // Fetch questions from Strapi
-    fetchLinkList(); // Fetch uploaded links
+    fetchLinkList();
+    fetchWaQrCode();
   }, [refreshKey]);
 
   useEffect(() => {
@@ -850,6 +857,27 @@ const AdminDashboard: React.FC = () => {
       setUsers([]);
     } finally {
       setLoadingUsers(false);
+    }
+  };
+
+  // Function to fetch QR code and status from the new API
+  const fetchWaQrCode = async () => {
+    setIsWaLoading(true);
+    try {
+      // The wa-js service is available at port 5001 as per docker-compose
+      const response = await axios.get('http://localhost:5001/api/qr');
+      const { qrDataURL, status, connected } = response.data;
+
+      setWaQrCodeUrl(qrDataURL || null);
+      setWaBotStatus(status);
+      setIsWaBotConnected(connected);
+
+    } catch (error) {
+      console.error('Error fetching WhatsApp QR code:', error);
+      setWaBotStatus('Failed to connect to the WhatsApp Bot service. Please ensure it is running.');
+      setWaQrCodeUrl(null);
+    } finally {
+      setIsWaLoading(false);
     }
   };
 
@@ -2043,32 +2071,39 @@ const AdminDashboard: React.FC = () => {
                 </div>
               </TabsContent>
 
-              <TabsContent value="wa-bot">
-                <Card className="p-6 border border-slate-200">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-bold text-slate-800">WhatsApp Bot Login</h2>
-                    <Button
-                      variant="outline"
-                      onClick={() => setWaIframeKey(prev => prev + 1)}
-                      className="ml-4 border-blue-300 hover:border-blue-400 hover:bg-blue-50"
-                    >
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Refresh QR
-                    </Button>
-                  </div>
-                  <div className="w-full" style={{ height: '80vh' }}>
-                    <iframe
-                      key={waIframeKey}
-                      src={`http://localhost:5001/wa?refresh=${waIframeKey}`}
-                      title="WhatsApp QR"
-                      width="100%"
-                      height="100%"
-                      style={{ border: '1px solid #e5e7eb', borderRadius: '8px', minHeight: '600px' }}
-                    />
-                  </div>
-                  <p className="mt-2 text-slate-500 text-sm">Scan QR tersebut dengan menggunakan fitur add device pada aplikasi WhatsApp</p>
-                </Card>
-              </TabsContent>
+               <TabsContent value="wa-bot">
+                    <Card className="p-6 border border-slate-200">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-xl font-bold text-slate-800">WhatsApp Bot Login</h2>
+                            <Button
+                                variant="outline"
+                                onClick={fetchWaQrCode} // This now correctly calls the function
+                                disabled={isWaLoading} // This can now find the state variable
+                            >
+                                <RefreshCw className={`h-4 w-4 mr-2 ${isWaLoading ? 'animate-spin' : ''}`} />
+                                {isWaLoading ? 'Loading...' : 'Refresh QR'}
+                            </Button>
+                        </div>
+                        
+                        <div className="w-full mt-6 flex flex-col items-center justify-center p-8 border-2 border-dashed border-slate-200 rounded-lg min-h-[400px]">
+                            {/* All the conditional rendering logic will now work because the state variables are in scope */}
+                            {isWaLoading ? (
+                                <div className="text-center">
+                                    <RefreshCw className="h-10 w-10 text-slate-400 animate-spin" />
+                                    <p className="mt-4 text-slate-500">Fetching status...</p>
+                                </div>
+                            ) : isWaBotConnected ? (
+                                // ... connected UI
+                                <p>{waBotStatus}</p>
+                            ) : waQrCodeUrl ? (
+                                <img src={waQrCodeUrl} alt="WhatsApp QR Code" />
+                            ) : (
+                                // ... not available UI
+                                <p>{waBotStatus}</p>
+                            )}
+                        </div>
+                    </Card>
+                </TabsContent>
 
             </Tabs>
           </div>
