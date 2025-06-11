@@ -12,7 +12,7 @@ const PORT = 5001;
 
 // Enable CORS for requests from your frontend
 appServer.use(cors({
-  origin: 'http://localhost:3000' // Allow your React app's origin
+  origin: 'http://frontend:3000' // Allow your React app's origin
 }));
 
 let latestQR = '';
