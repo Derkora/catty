@@ -60,7 +60,6 @@ out/
 
 # Strapi
 .strapi-updater.json
-.tmp/
 .cache/
 
 # Cache
