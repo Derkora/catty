@@ -30,7 +30,7 @@ import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import axios from 'axios';
 import { Badge } from '../components/ui/badge';
-import { API_BASE_URL, FLASK_API_BASE_URL } from '../config'; // Import Flask URL
+import { API_BASE_URL, FLASK_API_BASE_URL, WA_API_BASE_URL } from '../config'; // Import Flask URL
 import {
   Dialog,
   DialogContent,
@@ -865,7 +865,7 @@ const AdminDashboard: React.FC = () => {
     setIsWaLoading(true);
     try {
       // The wa-js service is available at port 5001 as per docker-compose
-      const response = await axios.get('http://localhost:5001/api/qr');
+      const response = await axios.get(`${WA_API_BASE_URL}:5001/api/qr`);
       const { qrDataURL, status, connected } = response.data;
 
       setWaQrCodeUrl(qrDataURL || null);
