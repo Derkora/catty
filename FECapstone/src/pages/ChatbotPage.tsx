@@ -757,21 +757,7 @@ const ChatbotPage: React.FC = () => {
                 ))}
               </div>
               
-              {/* Chat now button with hover effect */}
-              <div className="scale-in" style={{ animationDelay: '1.8s' }}>
-                <div className="relative group">
-                  <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-violet-500 rounded-full blur opacity-60 group-hover:opacity-100 transition duration-1000 group-hover:duration-200 animate-pulse"></div>
-                  <button className="relative px-8 py-3 bg-black rounded-full leading-none flex items-center">
-                    <span className="flex items-center justify-center pl-1">
-                      <Bot className="w-5 h-5 text-blue-400 mr-2" />
-                      <span className="text-white font-medium">Mulai Chat Sekarang</span>
-                    </span>
-                    <span className="ml-3 flex items-center text-indigo-400 group-hover:text-indigo-300 transition-colors">
-                      <span className="mr-1">→</span>
-                    </span>
-                  </button>
-                </div>
-              </div>
+              
             </div>
           </div>
           
