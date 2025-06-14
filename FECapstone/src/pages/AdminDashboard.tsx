@@ -865,7 +865,7 @@ const AdminDashboard: React.FC = () => {
     setIsWaLoading(true);
     try {
       // The wa-js service is available at port 5001 as per docker-compose
-      const response = await axios.get(`${WA_API_BASE_URL}:5001/api/qr`);
+      const response = await axios.get(`${WA_API_BASE_URL}/api/qr`);
       const { qrDataURL, status, connected } = response.data;
 
       setWaQrCodeUrl(qrDataURL || null);

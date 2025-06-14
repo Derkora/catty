@@ -39,7 +39,9 @@ services:
     build: ./BE-strapi
     container_name: strapi
     ports:
-      - "0.0.0.0:1337:1337"
+      - "1337:1337"
+    volumes:
+      - ./BE-strapi/.tmp:/opt/app/.tmp
     environment:
       NODE_ENV: development
       DATABASE_CLIENT: sqlite
