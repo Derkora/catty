@@ -259,7 +259,7 @@ const AdminDashboard: React.FC = () => {
     }));
   };
 
-  
+
 
   // Removed unused function
 
@@ -1945,7 +1945,15 @@ const AdminDashboard: React.FC = () => {
                                     size="sm"
                                     className="h-8 w-8 p-0"
                                     onClick={() => {
-                                      setEditingUser(user);
+                                      setEditingUser(user); // Keep this for now
+                                      // Populate the form state with the user's data
+                                      setEditUserForm({
+                                        id: user.id,
+                                        username: user.username,
+                                        email: user.email,
+                                        role: user.role.id, // Use the role ID from the role object
+                                        password: '',       // Clear password for security
+                                      });
                                       setIsEditUserModalOpen(true);
                                     }}
                                     disabled={isUpdatingUser}
@@ -2071,39 +2079,39 @@ const AdminDashboard: React.FC = () => {
                 </div>
               </TabsContent>
 
-               <TabsContent value="wa-bot">
-                    <Card className="p-6 border border-slate-200">
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-xl font-bold text-slate-800">WhatsApp Bot Login</h2>
-                            <Button
-                                variant="outline"
-                                onClick={fetchWaQrCode} // This now correctly calls the function
-                                disabled={isWaLoading} // This can now find the state variable
-                            >
-                                <RefreshCw className={`h-4 w-4 mr-2 ${isWaLoading ? 'animate-spin' : ''}`} />
-                                {isWaLoading ? 'Loading...' : 'Refresh QR'}
-                            </Button>
-                        </div>
-                        
-                        <div className="w-full mt-6 flex flex-col items-center justify-center p-8 border-2 border-dashed border-slate-200 rounded-lg min-h-[400px]">
-                            {/* All the conditional rendering logic will now work because the state variables are in scope */}
-                            {isWaLoading ? (
-                                <div className="text-center">
-                                    <RefreshCw className="h-10 w-10 text-slate-400 animate-spin" />
-                                    <p className="mt-4 text-slate-500">Fetching status...</p>
-                                </div>
-                            ) : isWaBotConnected ? (
-                                // ... connected UI
-                                <p>{waBotStatus}</p>
-                            ) : waQrCodeUrl ? (
-                                <img src={waQrCodeUrl} alt="WhatsApp QR Code" />
-                            ) : (
-                                // ... not available UI
-                                <p>{waBotStatus}</p>
-                            )}
-                        </div>
-                    </Card>
-                </TabsContent>
+              <TabsContent value="wa-bot">
+                <Card className="p-6 border border-slate-200">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold text-slate-800">WhatsApp Bot Login</h2>
+                    <Button
+                      variant="outline"
+                      onClick={fetchWaQrCode} // This now correctly calls the function
+                      disabled={isWaLoading} // This can now find the state variable
+                    >
+                      <RefreshCw className={`h-4 w-4 mr-2 ${isWaLoading ? 'animate-spin' : ''}`} />
+                      {isWaLoading ? 'Loading...' : 'Refresh QR'}
+                    </Button>
+                  </div>
+
+                  <div className="w-full mt-6 flex flex-col items-center justify-center p-8 border-2 border-dashed border-slate-200 rounded-lg min-h-[400px]">
+                    {/* All the conditional rendering logic will now work because the state variables are in scope */}
+                    {isWaLoading ? (
+                      <div className="text-center">
+                        <RefreshCw className="h-10 w-10 text-slate-400 animate-spin" />
+                        <p className="mt-4 text-slate-500">Fetching status...</p>
+                      </div>
+                    ) : isWaBotConnected ? (
+                      // ... connected UI
+                      <p>{waBotStatus}</p>
+                    ) : waQrCodeUrl ? (
+                      <img src={waQrCodeUrl} alt="WhatsApp QR Code" />
+                    ) : (
+                      // ... not available UI
+                      <p>{waBotStatus}</p>
+                    )}
+                  </div>
+                </Card>
+              </TabsContent>
 
             </Tabs>
           </div>

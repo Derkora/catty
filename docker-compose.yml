@@ -20,7 +20,7 @@ services:
     build: ./BE-flask
     container_name: flask-app
     ports:
-      - "5000:5000"
+      - "0.0.0.0:5000:5000"
     volumes:
       - ./BE-flask/data:/app/data
       - ./BE-flask/templates:/app/templates
@@ -39,7 +39,7 @@ services:
     build: ./BE-strapi
     container_name: strapi
     ports:
-      - "1337:1337"
+      - "0.0.0.0:1337:1337"
     environment:
       NODE_ENV: development
       DATABASE_CLIENT: sqlite
@@ -51,7 +51,7 @@ services:
     build: ./FECapstone
     container_name: frontend
     ports:
-      - "3000:80"
+      - "0.0.0.0:3000:80"
     restart: always
     networks:
       - ai-network
@@ -60,7 +60,7 @@ services:
     build: ./wa-bot
     container_name: wa-js
     ports:
-      - "5001:5001"
+      - "0.0.0.0:5001:5001"
     restart: always
     networks:
       - ai-network
