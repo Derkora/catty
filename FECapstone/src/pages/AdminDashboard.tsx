@@ -1001,7 +1001,8 @@ const AdminDashboard: React.FC = () => {
 
   const handleUpdateUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingUser) return;
+    // Use the ID from the form state
+    if (!editUserForm || !editUserForm.id) return;
 
     setIsUpdatingUser(true);
     const token = localStorage.getItem('token');
@@ -1011,42 +1012,27 @@ const AdminDashboard: React.FC = () => {
       return;
     }
 
-    // 1) Update username, email, role:
+    // Create the payload from the form state
+    const payload: any = {
+      username: editUserForm.username,
+      email: editUserForm.email,
+      role: editUserForm.role,
+    };
+
+    // Only include the password if it was changed
+    if (editUserForm.password && editUserForm.password.trim()) {
+      payload.password = editUserForm.password;
+    }
+
     try {
+      // Send a flat payload (NO "data" wrapper)
       await axios.put(
-        `${API_BASE_URL}/api/users/${editingUser.id}`,
+        `${API_BASE_URL}/api/users/${editUserForm.id}`, // Correct: Use ${} for variables
+        payload,
         {
-          data: {
-            username: editingUser.username,
-            email: editingUser.email,
-            role: editingUser.role,       // must be just the role ID
-          }
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+          headers: { Authorization: `Bearer ${token}` }
         }
       );
-
-      // 2) (Optional) Change password via change-password endpoint
-      if (editingUser.password?.trim()) {
-        await axios.put(
-          `${API_BASE_URL}/api/auth/change-password`,
-          {
-            data: {
-              currentPassword: editingUser.currentPassword,  // if you collect old PW
-              password: editingUser.password,
-              passwordConfirmation: editingUser.password,
-            }
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          }
-        );
-      }
 
       toast({ title: "Success", description: "User updated.", variant: "success" });
       setIsEditUserModalOpen(false);
@@ -2203,18 +2189,20 @@ const AdminDashboard: React.FC = () => {
                   <Select
                     name="role"
                     value={String(editUserForm.role)}
-                    onValueChange={val =>
-                      handleUpdateUserInputChange({
-                        target: { name: 'role', value: val }
-                      } as any)
-                    }
+                    // Corrected: Directly set the state and parse the value to a number
+                    onValueChange={value => {
+                      setEditUserForm(prev => ({
+                        ...prev,
+                        role: parseInt(value, 10)
+                      }));
+                    }}
                   >
                     <SelectTrigger id="edit-role" className="col-span-3">
                       <SelectValue placeholder="Pilih role" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="3">Mahasiswa IT</SelectItem>
-                      <SelectItem value="4">Admin IT</SelectItem>
+                      <SelectItem value="4">Mahasiswa IT</SelectItem>
+                      <SelectItem value="3">Admin IT</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
