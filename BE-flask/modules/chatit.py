@@ -155,6 +155,7 @@ def natural_join(items: list[str], lang: str) -> str:
     
 # Dipakai buat ngereferensi dokumen - Zidan
 def reference(response):
+    reminder = ""
     source_docs = response.get('source_documents', [])
     source_strings = []
 
@@ -224,46 +225,35 @@ def api_chat():
         data = request.get_json()
         question = data.get("message", "").strip()
         role = data.get("role", "general")
-        session_id = data.get("sessionId", "default") # Extract sessionId
+        session_id = data.get("sessionId", "default")
 
-        K = 3 # Berapa banyak chunks yang mau di ambil? - Zidan
+        K = 3 # How many chunks to retrieve
 
-        start_time = time.time() # Record start time
+        start_time = time.time()
 
         if not question:
             return jsonify({"answer": "Maaf, pesan tidak boleh kosong."})
 
         logger.info(f"Chat request received | Role: {role} | Question: {question}")
 
-        # Get role-specific vectorstore
+        # Get role-specific vectorstore. 
+        # The lock is correctly handled *inside* get_vectorstore().
         role_group = "mahasiswa" if role == "mahasiswa" else "umum"
         vectordb = get_vectorstore(role_group)
 
-        # Retrieve documents
-        with vectorstore_lock:
-            retrieved_docs = vectordb.similarity_search(question, k=K)
-
-        # Prepare QA chain
+        # Prepare QA chain - NO LOCK NEEDED HERE
         prompt = PROMPT_TEMPLATE_WITH_CONTEXT.get(role, PROMPT_TEMPLATE_WITH_CONTEXT["general"])
-        logger.info(f"Isi prompr: {prompt}")
-
-        '''
-        Ada beberapa perubahan di sini:
-        1. qa_chain di tambah return_source_documents agar memberikan dokumen yang digunakan
-        2. Megubah result jadi dict, agar bisa menampilkan data lebih dari satu (kalau pakai .run cuma bisa menampilkan 1 data)(2 data karena ada jawaban dan source documents)
-        3. Reference di ubah menjadi fungsi reference()
-
-        -Zidan
-        '''
-        with vectorstore_lock:
-            qa_chain = RetrievalQA.from_chain_type(
-                llm=llm,
-                chain_type="stuff",
-                retriever=vectordb.as_retriever(search_kwargs={"k": K}),
-                return_source_documents=True,
-                chain_type_kwargs={"prompt": prompt}
-            )
-            result = qa_chain.invoke(question)
+        
+        qa_chain = RetrievalQA.from_chain_type(
+            llm=llm,
+            chain_type="stuff",
+            retriever=vectordb.as_retriever(search_kwargs={"k": K}),
+            return_source_documents=True,
+            chain_type_kwargs={"prompt": prompt}
+        )
+        
+        # Invoke the chain to get a result - NO LOCK NEEDED HERE
+        result = qa_chain.invoke(question)
 
         logger.info(f"isi dari reference: {reference(result)}")
         logger.info(f"isi dari result: {result}")
@@ -272,13 +262,13 @@ def api_chat():
         raw_answer = result["result"].strip()
         
         # Determine if we should add references
-        if raw_answer.lower().startswith("maaf"):
-            # If apology message, use raw answer without references
+        if "maaf" in raw_answer.lower() or not result.get('source_documents'):
+            # If apology message or no sources found, use raw answer without references
             full_answer = raw_answer
         else:
             # For normal answers, add references
             reference_text = reference(result)
-            full_answer = f"{raw_answer}\n{reference_text}"
+            full_answer = f"{raw_answer}{reference_text}" # Removed extra newline for cleaner look
 
         # Jika LLM gagal atau jawab kosong/aneh
         if not full_answer:
@@ -292,6 +282,8 @@ def api_chat():
     except Exception as e:
         logger.error("Error during chat processing", exc_info=True)
         return jsonify({"answer": "Maaf, terjadi kesalahan saat memproses pertanyaan. Silakan coba lagi nanti."}), 500
+
+
 
 @chat_bp.route('/api/health/chat', methods=['GET'])
 def health_check_chat():
